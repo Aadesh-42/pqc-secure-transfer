@@ -28,6 +28,16 @@ async def register_user(user: UserCreate):
         "role": user.role,
         "mfa_secret": mfa_secret
     }
+    
+    # Try generating kyber keypair if liboqs is available
+    try:
+        from services.pqc_service import generate_kyber_keypair
+        pub_key, _ = generate_kyber_keypair() # We only store public key
+        new_user["kyber_public_key"] = pub_key
+    except ImportError:
+        pass # Will remain null if not available
+        
+    result = supabase.table("users").insert(new_user).execute()
     result = supabase.table("users").insert(new_user).execute()
     
     if not result.data:
@@ -68,3 +78,20 @@ async def verify_mfa(mfa: MfaVerify):
     )
     
     return {"access_token": access_token, "token_type": "bearer", "user_id": mfa.user_id}
+
+@router.post("/update_kyber_keys")
+async def update_kyber_keys(email: str):
+    """Temporary endpoint to generate and save kyber keys for existing users"""
+    try:
+        from services.pqc_service import generate_kyber_keypair
+        pub_key, priv_key = generate_kyber_keypair()
+        
+        # Update user in DB
+        result = supabase.table("users").update({"kyber_public_key": pub_key}).eq("email", email).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="User not found")
+            
+        return {"message": "Keys generated successfully", "email": email, "private_key": priv_key}
+    except ImportError:
+        raise HTTPException(status_code=500, detail="PQC Not Available on this system")
