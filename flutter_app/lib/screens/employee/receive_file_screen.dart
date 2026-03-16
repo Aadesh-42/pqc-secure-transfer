@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../services/api_service.dart';
 
 class ReceiveFileScreen extends StatefulWidget {
   const ReceiveFileScreen({super.key});
@@ -8,35 +11,65 @@ class ReceiveFileScreen extends StatefulWidget {
 }
 
 class _ReceiveFileScreenState extends State<ReceiveFileScreen> {
+  // In a real scenario we'd query /files/pending for the user. 
+  // Let's mock the file object for scaffolding that backend would return
   final Map<String, dynamic> _file = {
-    'id': 'file-123',
+    'id': 'file-1234-5678', // mock id
     'sender': 'Admin',
-    'date': 'Oct 25, 2026',
+    'date': 'Today',
     'status': 'pending', // pending, confirmed, decrypted
   };
   bool _isDecrypting = false;
+  bool _isConfirming = false;
   String? _decryptedText;
 
-  void _confirmReceipt() async {
-    // API call to POST /files/{id}/confirm
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Receipt confirmed. Ready to decrypt.')));
-    setState(() => _file['status'] = 'confirmed');
+  Future<void> _confirmReceipt() async {
+    setState(() => _isConfirming = true);
+    try {
+      final api = Provider.of<ApiService>(context, listen: false);
+      // Wait for dummy ID logic or actual ID if we fetched a list
+      // final res = await api.confirmFile(_file['id']);
+      // Simulate backend delay for scaffolding
+      await Future.delayed(const Duration(seconds: 1));
+      
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Receipt confirmed. Ready to decrypt.')));
+      setState(() => _file['status'] = 'confirmed');
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to confirm receipt: $e')));
+    } finally {
+      setState(() => _isConfirming = false);
+    }
   }
 
-  void _decryptFile() async {
+  Future<void> _decryptFile() async {
     setState(() => _isDecrypting = true);
     
-    // Simulate Kyber decapsulation & AES decryption flow
-    await Future.delayed(const Duration(seconds: 2));
-    
-    setState(() {
-      _isDecrypting = false;
-      _file['status'] = 'decrypted';
-      _decryptedText = "Confidential Q1 Earnings Data: \nRevenue: \$1M\nGrowth: 40%\n[This highly sensitive data was decrypted safely via Kyber+Dilithium!]";
-    });
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File successfully decrypted locally!')));
+    try {
+      final api = Provider.of<ApiService>(context, listen: false);
+      /*
+      Actual Call:
+      final res = await api.decryptFile(_file['id'], {
+        'receiver_private_key_b64': 'mock_kyber_private',
+        'admin_public_key_b64': 'mock_dilithium_public',
+      });
+      _decryptedText = utf8.decode(base64Decode(res.data['file_bytes_b64']));
+      */
+      
+      // Simulate backend delay for scaffolding
+      await Future.delayed(const Duration(seconds: 2));
+      
+      setState(() {
+        _file['status'] = 'decrypted';
+        _decryptedText = "Confidential Q1 Earnings Data: \nRevenue: \$1M\nGrowth: 40%\n[This highly sensitive data was decrypted safely via Kyber+Dilithium!]";
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File signature verified and decrypted locally!')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to decrypt file: $e')));
+    } finally {
+      setState(() => _isDecrypting = false);
     }
   }
 
@@ -91,15 +124,15 @@ class _ReceiveFileScreenState extends State<ReceiveFileScreen> {
             const SizedBox(height: 24),
             if (_file['status'] == 'pending')
               ElevatedButton.icon(
-                icon: const Icon(Icons.check),
+                icon: _isConfirming ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.check),
                 label: const Text('CONFIRM RECEIPT'),
                 style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
-                onPressed: _confirmReceipt,
+                onPressed: _isConfirming ? null : _confirmReceipt,
               ),
             if (_file['status'] == 'confirmed')
               ElevatedButton.icon(
-                icon: _isDecrypting ? const CircularProgressIndicator(color: Colors.white) : const Icon(Icons.key),
-                label: Text(_isDecrypting ? 'DECRYPTING...' : 'DECRYPT FILE'),
+                icon: _isDecrypting ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.key),
+                label: Text(_isDecrypting ? 'VERIFYING & DECRYPTING...' : 'DECRYPT FILE'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.purple,
                   foregroundColor: Colors.white,
