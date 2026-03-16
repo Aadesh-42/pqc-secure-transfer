@@ -7,3 +7,5 @@ bcrypt
 python-dotenv
 pyotp
 pydantic
+liboqs-python
+cryptography
