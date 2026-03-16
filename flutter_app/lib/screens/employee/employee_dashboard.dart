@@ -1,10 +1,54 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../services/api_service.dart';
 
-class EmployeeDashboard extends StatelessWidget {
+class EmployeeDashboard extends StatefulWidget {
   const EmployeeDashboard({super.key});
 
   @override
+  State<EmployeeDashboard> createState() => _EmployeeDashboardState();
+}
+
+class _EmployeeDashboardState extends State<EmployeeDashboard> {
+  int _pendingTasks = 0;
+  int _pendingFiles = 0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    setState(() => _isLoading = true);
+    final api = Provider.of<ApiService>(context, listen: false);
+    
+    try {
+      final tasksRes = await api.getTasks();
+      if (tasksRes.statusCode == 200) {
+        final tasks = tasksRes.data as List;
+        // In a real app with JWT sub extraction on backend, GET /tasks would return only MY tasks.
+        _pendingTasks = tasks.where((t) => t['status'] != 'completed').length;
+      }
+      
+      // Simulate fetching files: this would be a GET /files/my_pending
+      // For now we'll just show 1 dummy pending file.
+      _pendingFiles = 1; 
+
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load dashboard: $e')));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Employee Dashboard'),
@@ -15,64 +59,67 @@ class EmployeeDashboard extends StatelessWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Welcome, Employee',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildSummaryCard(context, 'My Tasks', '3 Pending', Icons.playlist_add_check, Colors.orange),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildSummaryCard(context, 'Secure Files', '1 New', Icons.lock, Colors.indigo),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'Session Info',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant,
-                borderRadius: BorderRadius.circular(12),
+      body: RefreshIndicator(
+        onRefresh: _loadDashboardData,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Welcome, Employee',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 24),
+              Row(
                 children: [
-                  Text('IP Address: 192.168.1.104'),
-                  Text('Device: Android SDK built for x86'),
-                  Text('Login Time: 09:00 AM, Oct 25'),
+                  Expanded(
+                    child: _buildSummaryCard(context, 'My Tasks', '$_pendingTasks Pending', Icons.playlist_add_check, Colors.orange),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildSummaryCard(context, 'Secure Files', '$_pendingFiles New', Icons.lock, Colors.indigo),
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'Quick Actions',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children: [
-                _buildActionCard(context, 'View Tasks', Icons.assignment_ind, '/task_checklist', Colors.blue),
-                _buildActionCard(context, 'Receive Files', Icons.download, '/receive_file', Colors.purple),
-                _buildActionCard(context, 'Open Chat', Icons.chat_bubble_outline, '/chat', Colors.teal),
-              ],
-            ),
-          ],
+              const SizedBox(height: 32),
+              Text(
+                'Session Info',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('IP Address: 192.168.1.104'),
+                    Text('Device: Android SDK built for x86'),
+                    Text('Login Time: Just Now'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+              Text(
+                'Quick Actions',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  _buildActionCard(context, 'View Tasks', Icons.assignment_ind, '/task_checklist', Colors.blue),
+                  _buildActionCard(context, 'Receive Files', Icons.download, '/receive_file', Colors.purple),
+                  _buildActionCard(context, 'Open Chat', Icons.chat_bubble_outline, '/chat', Colors.teal),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
