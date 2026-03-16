@@ -11,5 +11,4 @@ pydantic[email]
 email-validator
 sqlalchemy
 httpx
-liboqs-python
 cryptography
