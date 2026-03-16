@@ -1,2 +1,3 @@
-# pqc-secure-transfer
-PQC Secure File Transfer — Flutter + FastAPI + Supabase
+# PQC Secure File Transfer App
+Flutter + FastAPI + Supabase + 
+Post-Quantum Cryptography
