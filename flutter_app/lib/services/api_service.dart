@@ -6,10 +6,14 @@ class ApiService {
   final AuthService _authService = AuthService();
   
   // Base URL for the FastAPI backend (Render URL or localhost)
-  final String baseUrl = 'https://pqc-secure-backend.onrender.com';
+  // 'http://10.0.2.2:8000' is localhost for Android emulator. Replace with RENDER_URL later.
+  final String baseUrl = 'http://10.0.2.2:8000';
 
   ApiService() {
     _dio.options.baseUrl = baseUrl;
+    _dio.options.connectTimeout = const Duration(seconds: 10);
+    _dio.options.receiveTimeout = const Duration(seconds: 10);
+    
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
@@ -19,8 +23,13 @@ class ApiService {
           }
           return handler.next(options);
         },
-        onError: (DioException e, handler) {
-          // Global error handling could go here
+        onError: (DioException e, handler) async {
+          if (e.response?.statusCode == 401) {
+            // Handle unauthorized globally (e.g., token expired)
+            await _authService.logout();
+            // Need a way to navigate to login without context here. 
+            // In a real app we might emit a stream event.
+          }
           return handler.next(e);
         }
       )
