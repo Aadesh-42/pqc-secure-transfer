@@ -1,4 +1,4 @@
-import 'package:dio/dio.dart';
+mport 'package:dio/dio.dart';
 import 'auth_service.dart';
 
 class ApiService {
@@ -37,23 +37,23 @@ class ApiService {
   }
 
   // Auth Endpoints
-  Future<Response> register(Map<String, динамический> data) => _dio.post('/auth/register', data: data);
-  Future<Response> login(Map<String, динамический> data) => _dio.post('/auth/login', data: data);
-  Future<Response> verifyMfa(Map<String, динамический> data) => _dio.post('/auth/mfa/verify', data: data);
+  Future<Response> register(Map<String, dynamic> data) => _dio.post('/auth/register', data: data);
+  Future<Response> login(Map<String, dynamic> data) => _dio.post('/auth/login', data: data);
+  Future<Response> verifyMfa(Map<String, dynamic> data) => _dio.post('/auth/mfa/verify', data: data);
 
   // Tasks Endpoints
   Future<Response> getTasks() => _dio.get('/tasks');
-  Future<Response> createTask(Map<String, динамический> data) => _dio.post('/tasks/create', data: data);
-  Future<Response> updateTask(String id, Map<String, динамический> data) => _dio.patch('/tasks/$id/status', data: data);
+  Future<Response> createTask(Map<String, dynamic> data) => _dio.post('/tasks/create', data: data);
+  Future<Response> updateTask(String id, Map<String, dynamic> data) => _dio.patch('/tasks/$id/status', data: data);
 
   // Files Endpoints
-  Future<Response> sendFile(Map<String, динамический> data) => _dio.post('/files/send', data: data);
+  Future<Response> sendFile(Map<String, dynamic> data) => _dio.post('/files/send', data: data);
   Future<Response> confirmFile(String id) => _dio.post('/files/$id/confirm');
-  Future<Response> decryptFile(String id, Map<String, динамический> data) => _dio.post('/files/$id/decrypt', data: data);
+  Future<Response> decryptFile(String id, Map<String, dynamic> data) => _dio.post('/files/$id/decrypt', data: data);
 
   // Messages Endpoints
   Future<Response> getMessages(String userId) => _dio.get('/messages/$userId');
-  Future<Response> sendMessage(Map<String, динамический> data) => _dio.post('/messages/send', data: data);
+  Future<Response> sendMessage(Map<String, dynamic> data) => _dio.post('/messages/send', data: data);
 
   // Audit Logs Endpoint
   Future<Response> getAuditLogs() => _dio.get('/audit/logs');
