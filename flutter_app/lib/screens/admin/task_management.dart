@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+mport 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../models/task.dart';
@@ -119,7 +119,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
                         color: task.status == 'completed' ? Colors.green : Colors.grey,
                       ),
                       title: Text(task.title),
-                      subtitle: Text("Assignee: ${task.assignedTo ?? 'Unassigned'} • Priority: ${task.priority}"),
+                      subtitle: Text("Assignee: ${task.assignedTo ?? 'Unassigned'} - Priority: ${task.priority}"),
                       trailing: PopupMenuButton<String>(
                         onSelected: (val) => _updateTaskStatus(task.id, val),
                         itemBuilder: (context) => const [
