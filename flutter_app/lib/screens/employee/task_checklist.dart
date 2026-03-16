@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+mport 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../models/task.dart';
@@ -105,7 +105,7 @@ class _TaskChecklistScreenState extends State<TaskChecklistScreen> {
                       children: [
                         Icon(Icons.circle, size: 10, color: _getPriorityColor(t.priority)),
                         const SizedBox(width: 4),
-                        Text("${t.priority.toUpperCase()} • Due: ${t.dueDate != null ? t.dueDate.toString().split(' ')[0] : 'None'}"),
+                        Text("${t.priority.toUpperCase()} - Due: ${t.dueDate != null ? t.dueDate.toString().split(' ')[0] : 'None'}"),
                       ],
                     ),
                     secondary: const Icon(Icons.assignment_turned_in, color: Colors.blueGrey),
