@@ -6,8 +6,8 @@ class ApiService {
   final AuthService _authService = AuthService();
   
   // Base URL for the FastAPI backend (Render URL or localhost)
-  // 'http://10.0.2.2:8000' is localhost for Android emulator. Replace with RENDER_URL later.
-  final String baseUrl = 'http://10.0.2.2:8000';
+  // Live Render URL
+  final String baseUrl = 'https://pqc-secure-transfer.onrender.com';
 
   ApiService() {
     _dio.options.baseUrl = baseUrl;
