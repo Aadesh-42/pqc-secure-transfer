@@ -1,7 +1,6 @@
-# Use Python 3.11 slim image
 FROM python:3.11-slim
 
-# Install build dependencies for liboqs
+# Install build dependencies
 RUN apt-get update && apt-get install -y \
     cmake \
     ninja-build \
@@ -9,33 +8,37 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     build-essential \
     git \
-    astyle \
     && rm -rf /var/lib/apt/lists/*
 
-# Clone and build liboqs from source
-RUN git clone --branch main \
+# Build liboqs C library first
+RUN git clone --depth 1 \
     https://github.com/open-quantum-safe/liboqs.git \
     && cmake -S liboqs -B liboqs/build \
     -DOQS_DIST_BUILD=ON \
     -DBUILD_SHARED_LIBS=ON \
-    && cmake --build liboqs/build \
-    --parallel 4 \
-    && cmake --install liboqs/build
+    -DCMAKE_INSTALL_PREFIX=/usr/local \
+    && cmake --build liboqs/build --parallel 4 \
+    && cmake --install liboqs/build \
+    && ldconfig \
+    && rm -rf liboqs
 
-# Install liboqs-python
-RUN pip install liboqs-python
+# Now install liboqs python wrapper
+RUN git clone --depth 1 \
+    https://github.com/open-quantum-safe/liboqs-python.git \
+    && cd liboqs-python \
+    && pip install . \
+    && cd .. \
+    && rm -rf liboqs-python
 
-# Set working directory
 WORKDIR /app
-
-# Copy and install requirements
 COPY requirements.txt .
+
+# Remove liboqs-python from requirements.txt
+# since we installed it manually above
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend code
 COPY . .
 
-# Start server
 CMD ["uvicorn", "main:app", \
      "--host", "0.0.0.0", \
      "--port", "8000"]
