@@ -1,6 +1,11 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import '../../widgets/custom_button.dart';
+import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../services/api_service.dart';
+import '../../services/pqc_service.dart';
+import '../../widgets/custom_button.dart';
 
 class SendFileScreen extends StatefulWidget {
   const SendFileScreen({super.key});
@@ -12,51 +17,72 @@ class SendFileScreen extends StatefulWidget {
 class _SendFileScreenState extends State<SendFileScreen> {
   int _currentStep = 0;
   String? _fileName;
+  Uint8List? _fileBytes;
   bool _isSending = false;
-  String _selectedEmployee = 'Employee 1';
-
-  final List<String> _employees = ['Employee 1', 'Employee 2', 'Employee 3'];
+  
+  // Hardcoded for dummy until we have a real users endpoint
+  String _selectedEmployeeId = 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d';
+  final List<Map<String, String>> _employees = [
+    {'id': 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', 'name': 'Employee 1'},
+  ];
 
   Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles();
+    FilePickerResult? result = await FilePicker.platform.pickFiles(withData: true);
     if (result != null) {
       setState(() {
         _fileName = result.files.single.name;
+        _fileBytes = result.files.single.bytes;
         _currentStep = 1;
       });
     }
   }
 
   Future<void> _handleSend() async {
-    if (_fileName == null) return;
+    if (_fileBytes == null) return;
     
     setState(() => _isSending = true);
     
-    // Simulate Step 2: Kyber-768 Encryption
-    setState(() => _currentStep = 2);
-    await Future.delayed(const Duration(seconds: 1));
-    
-    // Simulate Step 3: Dilithium3 Signing
-    setState(() => _currentStep = 3);
-    await Future.delayed(const Duration(seconds: 1));
-    
-    // Simulate Step 4: Uploading
-    setState(() => _currentStep = 4);
-    await Future.delayed(const Duration(seconds: 1));
-    
-    setState(() {
-      _currentStep = 5;
-      _isSending = false;
-    });
+    try {
+      final pqc = Provider.of<PqcService>(context, listen: false);
+      final api = Provider.of<ApiService>(context, listen: false);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('File successfully encrypted and sent!')),
-      );
-      // Wait a moment then close
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) Navigator.pop(context);
+      // Step 2 & 3: Encrypt and Sign (Using pqc_service mock for now, 
+      // but passing real base64 to backend later where the actual encryption logic resides in our backend design)
+      // *Wait, the backend logic decrypts/encrypts ON the server based on requirements*
+      // Let's send the raw base64 to the backend /files/send, as the backend pqc_service does the enc/sign.
+      
+      setState(() => _currentStep = 2); // Kyber 
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      setState(() => _currentStep = 3); // Dilithium
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      setState(() => _currentStep = 4); // Uploading
+      
+      final String fileB64 = base64Encode(_fileBytes!);
+      
+      // We pass the raw file to backend, backend does Kyber encap + Dilithium sign.
+      final res = await api.sendFile({
+        'sender_id': '00000000-0000-0000-0000-000000000000', // Mock Admin
+        'receiver_id': _selectedEmployeeId,
+        'file_bytes_b64': fileB64,
+        'admin_private_key_b64': 'dummy_private_key', // Mocked, ideally from secure storage
       });
+
+      if (res.statusCode == 200) {
+        setState(() {
+          _currentStep = 5; // Delivered
+        });
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File successfully encrypted and sent!')));
+        
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) Navigator.pop(context);
+        });
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Transfer failed: $e')));
+    } finally {
+      setState(() => _isSending = false);
     }
   }
 
@@ -75,17 +101,21 @@ class _SendFileScreenState extends State<SendFileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DropdownButtonFormField<String>(
-                  value: _selectedEmployee,
+                  value: _selectedEmployeeId,
                   decoration: const InputDecoration(labelText: 'Recipient', border: OutlineInputBorder()),
-                  items: _employees.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                  onChanged: (val) => setState(() => _selectedEmployee = val!),
+                  items: _employees.map((e) => DropdownMenuItem(value: e['id'], child: Text(e['name']!))).toList(),
+                  onChanged: (val) => setState(() => _selectedEmployeeId = val!),
                 ),
                 const SizedBox(height: 16),
-                CustomButton(
-                  text: _fileName ?? 'Choose File',
-                  icon: Icons.attach_file,
-                  onPressed: _pickFile,
-                ),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.attach_file),
+                    label: Text(_fileName ?? 'Choose File'),
+                     onPressed: _pickFile,
+                  ),
+                )
               ],
             ),
             isActive: _currentStep >= 0,
@@ -123,47 +153,6 @@ class _SendFileScreenState extends State<SendFileScreen> {
           text: 'Send File Safely',
           isLoading: _isSending,
           onPressed: _currentStep == 1 && !_isSending ? _handleSend : null,
-        ),
-      ),
-    );
-  }
-}
-
-// Temporary override for CustomButton to support icons in this file
-// if CustomButton doesn't have an icon parameter natively.
-class CustomButton extends StatelessWidget {
-  final String text;
-  final VoidCallback? onPressed;
-  final bool isLoading;
-  final IconData? icon;
-
-  const CustomButton({
-    super.key,
-    required this.text,
-    required this.onPressed,
-    this.isLoading = false,
-    this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton.icon(
-        icon: isLoading
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              )
-            : Icon(icon ?? Icons.check),
-        label: Text(text),
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          foregroundColor: Theme.of(context).colorScheme.onPrimary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
     );
