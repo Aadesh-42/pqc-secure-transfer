@@ -9,23 +9,35 @@ class ApiService {
   
   // Base URL for the FastAPI backend (Render URL or localhost)
   // Live Render URL
-  final String baseUrl = 'http://192.168.0.102:8000';
+  final String baseUrl = 'https://pqc-secure-transfer.onrender.com';
 
   ApiService() {
+    print("API SERVICE INITIALIZED WITH BASEURL: $baseUrl");
     _dio.options.baseUrl = baseUrl;
-    _dio.options.connectTimeout = const Duration(seconds: 10);
-    _dio.options.receiveTimeout = const Duration(seconds: 10);
+    _dio.options.connectTimeout = const Duration(seconds: 15);
+    _dio.options.receiveTimeout = const Duration(seconds: 15);
     
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          print("API CALL REQUEST: ${options.method} ${options.baseUrl}${options.path}");
+          if (options.queryParameters.isNotEmpty) {
+            print("QUERY PARAMS: ${options.queryParameters}");
+          }
           final token = await _authService.getToken();
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
           return handler.next(options);
         },
+        onResponse: (response, handler) {
+          print("API CALL RESPONSE [${response.statusCode}] FOR: ${response.requestOptions.path}");
+          print("RESPONSE BODY: ${response.data}");
+          return handler.next(response);
+        },
         onError: (DioException e, handler) async {
+          print("API CALL ERROR [${e.response?.statusCode}] FOR: ${e.requestOptions.path}");
+          print("ERROR MESSAGE: ${e.message}");
           if (e.response?.statusCode == 401) {
             // Handle unauthorized globally (e.g., token expired)
             await _authService.logout();
