@@ -141,3 +141,9 @@ async def get_file_for_decryption(file_id: str, req: FileDecryptRequest, request
         "message": "File signature verified and decrypted successfully", 
         "file_bytes_b64": base64.b64encode(decrypted_bytes).decode('utf-8')
     }
+
+@router.get("/received")
+async def get_received_files(receiver_id: str):
+    """Get all files received by a specific user."""
+    result = supabase.table("secure_files").select("*").eq("receiver_id", receiver_id).execute()
+    return result.data
