@@ -26,3 +26,9 @@ async def update_task_status(task_id: str, task_update: TaskUpdate):
     if not result.data:
         raise HTTPException(status_code=404, detail="Task not found or failed to update")
     return result.data[0]
+
+@router.get("/assigned", response_model=List[TaskResponse])
+async def get_assigned_tasks(user_id: str):
+    """Get tasks assigned to a specific user."""
+    result = supabase.table("tasks").select("*").eq("assigned_to", user_id).execute()
+    return result.data
