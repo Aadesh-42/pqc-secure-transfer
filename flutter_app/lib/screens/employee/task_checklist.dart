@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import '../../models/task.dart';
 
 class TaskChecklistScreen extends StatefulWidget {
@@ -23,8 +24,12 @@ class _TaskChecklistScreenState extends State<TaskChecklistScreen> {
   Future<void> _loadTasks() async {
     setState(() => _isLoading = true);
     final api = Provider.of<ApiService>(context, listen: false);
+    final auth = AuthService();
     try {
-      final res = await api.getTasks();
+      final user = await auth.getCurrentUser();
+      if (user == null) return;
+
+      final res = await api.getAssignedTasks(user.id);
       if (res.statusCode == 200) {
         setState(() {
           _tasks = (res.data as List).map((t) => TaskModel.fromJson(t)).toList();
