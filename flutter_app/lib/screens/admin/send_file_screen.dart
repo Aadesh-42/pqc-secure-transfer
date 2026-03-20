@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import '../../services/pqc_service.dart';
 import '../../widgets/custom_button.dart';
 
@@ -19,12 +20,35 @@ class _SendFileScreenState extends State<SendFileScreen> {
   String? _fileName;
   Uint8List? _fileBytes;
   bool _isSending = false;
+  bool _isLoadingEmployees = true;
   
-  // Hardcoded for dummy until we have a real users endpoint
-  String _selectedEmployeeId = 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d';
-  final List<Map<String, String>> _employees = [
-    {'id': 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', 'name': 'Employee 1'},
-  ];
+  String? _selectedEmployeeId;
+  List<Map<String, dynamic>> _employees = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEmployees();
+  }
+
+  Future<void> _loadEmployees() async {
+    try {
+      final api = Provider.of<ApiService>(context, listen: false);
+      final res = await api.getEmployees();
+      if (res.statusCode == 200) {
+        setState(() {
+          _employees = List<Map<String, dynamic>>.from(res.data);
+          if (_employees.isNotEmpty) {
+            _selectedEmployeeId = _employees.first['id'];
+          }
+          _isLoadingEmployees = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load recipients: $e')));
+      setState(() => _isLoadingEmployees = false);
+    }
+  }
 
   Future<void> _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(withData: true);
@@ -38,35 +62,32 @@ class _SendFileScreenState extends State<SendFileScreen> {
   }
 
   Future<void> _handleSend() async {
-    if (_fileBytes == null) return;
+    if (_fileBytes == null || _selectedEmployeeId == null) return;
     
     setState(() => _isSending = true);
     
     try {
-      final pqc = Provider.of<PqcService>(context, listen: false);
       final api = Provider.of<ApiService>(context, listen: false);
+      final auth = AuthService();
+      final currentUser = await auth.getCurrentUser();
 
-      // Step 2 & 3: Encrypt and Sign (Using pqc_service mock for now, 
-      // but passing real base64 to backend later where the actual encryption logic resides in our backend design)
-      // *Wait, the backend logic decrypts/encrypts ON the server based on requirements*
-      // Let's send the raw base64 to the backend /files/send, as the backend pqc_service does the enc/sign.
+      if (currentUser == null) throw Exception('You must be logged in to send files');
       
       setState(() => _currentStep = 2); // Kyber 
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 1000));
       
       setState(() => _currentStep = 3); // Dilithium
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 1000));
       
       setState(() => _currentStep = 4); // Uploading
       
       final String fileB64 = base64Encode(_fileBytes!);
       
-      // We pass the raw file to backend, backend does Kyber encap + Dilithium sign.
       final res = await api.sendFile({
-        'sender_id': '00000000-0000-0000-0000-000000000000', // Mock Admin
+        'sender_id': currentUser.id,
         'receiver_id': _selectedEmployeeId,
         'file_bytes_b64': fileB64,
-        'admin_private_key_b64': 'dummy_private_key', // Mocked, ideally from secure storage
+        'admin_private_key_b64': 'dummy_private_key_for_mock', 
       });
 
       if (res.statusCode == 200) {
@@ -82,7 +103,7 @@ class _SendFileScreenState extends State<SendFileScreen> {
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Transfer failed: $e')));
     } finally {
-      setState(() => _isSending = false);
+      if (mounted) setState(() => _isSending = false);
     }
   }
 
@@ -90,7 +111,9 @@ class _SendFileScreenState extends State<SendFileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Secure PQC Transfer')),
-      body: Stepper(
+      body: _isLoadingEmployees 
+        ? const Center(child: CircularProgressIndicator())
+        : Stepper(
         currentStep: _currentStep < 5 ? _currentStep : 4,
         controlsBuilder: (context, details) => const SizedBox.shrink(),
         physics: const ClampingScrollPhysics(),
@@ -103,8 +126,12 @@ class _SendFileScreenState extends State<SendFileScreen> {
                 DropdownButtonFormField<String>(
                   value: _selectedEmployeeId,
                   decoration: const InputDecoration(labelText: 'Recipient', border: OutlineInputBorder()),
-                  items: _employees.map((e) => DropdownMenuItem(value: e['id'], child: Text(e['name']!))).toList(),
-                  onChanged: (val) => setState(() => _selectedEmployeeId = val!),
+                  items: _employees.map((e) => DropdownMenuItem(
+                    value: e['id'] as String, 
+                    child: Text(e['email'] as String))
+                  ).toList(),
+                  onChanged: (val) => setState(() => _selectedEmployeeId = val),
+                  hint: const Text('Select an employee'),
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
@@ -152,7 +179,7 @@ class _SendFileScreenState extends State<SendFileScreen> {
         child: CustomButton(
           text: 'Send File Safely',
           isLoading: _isSending,
-          onPressed: _currentStep == 1 && !_isSending ? _handleSend : null,
+          onPressed: _currentStep == 1 && !_isSending && _selectedEmployeeId != null ? _handleSend : null,
         ),
       ),
     );
