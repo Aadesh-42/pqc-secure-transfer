@@ -89,7 +89,7 @@ async def verify_mfa(mfa: MfaVerify):
     db_user = user_res.data[0]
     
     # Check OTP in sessions table
-    session_res = supabase.table("sessions").select("*").eq("user_id", db_user["id"]).eq("otp_code", mfa.code).execute()
+    session_res = supabase.table("sessions").select("*").eq("user_id", db_user["id"]).eq("otp_code", mfa.otp_code).execute()
     
     if not session_res.data:
         raise HTTPException(status_code=401, detail="Invalid OTP code")
