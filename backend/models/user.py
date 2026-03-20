@@ -5,7 +5,7 @@ from uuid import UUID
 
 # Shared properties
 class UserBase(BaseModel):
-    email: EmailStr
+    email: str
     role: str = "employee"
 
 # Properties to receive via API on creation
@@ -14,13 +14,13 @@ class UserCreate(UserBase):
 
 # Properties to receive via API on login
 class UserLogin(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 # MFA Verification
 class MfaVerify(BaseModel):
-    user_id: UUID
-    code: str
+    email: str
+    otp_code: str
 
 # Properties to return to client
 class UserResponse(UserBase):
