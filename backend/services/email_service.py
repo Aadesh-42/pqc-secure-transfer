@@ -8,8 +8,16 @@ def send_otp_email(email: str, otp: str):
     """
     Sends a 6-digit OTP email to the user using Brevo REST API with requests.
     """
+    print(f"DEBUG: Attempting to send OTP to {email}")
+    print(f"DEBUG: Using OTP code: {otp}")
+    
     api_key = os.getenv("BREVO_API_KEY")
     sender_email = os.getenv("MAIL_FROM", "aadi.angane07@gmail.com")
+    
+    if not api_key:
+        print("DEBUG ERROR: BREVO_API_KEY is not set in environment variables.")
+        return False
+        
     url = "https://api.brevo.com/v3/smtp/email"
     
     headers = {
@@ -36,12 +44,15 @@ def send_otp_email(email: str, otp: str):
     
     try:
         response = requests.post(url, json=data, headers=headers)
+        print(f"DEBUG: Brevo response status code: {response.status_code}")
+        print(f"DEBUG: Brevo response body: {response.text}")
+        
         if response.status_code == 201:
-            print(f"OTP Email sent successfully to {email}")
+            print(f"SUCCESS: OTP Email sent successfully to {email}")
             return True
         else:
-            print(f"Failed to send email. Status code: {response.status_code}, Response: {response.text}")
+            print(f"FAILURE: Failed to send email. Status code: {response.status_code}")
             return False
     except Exception as e:
-        print(f"Error sending email: {e}")
+        print(f"DEBUG ERROR: Exception occurred while sending email: {e}")
         return False
