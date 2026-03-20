@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:dio/dio.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../widgets/custom_button.dart';
@@ -19,7 +21,32 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   bool _showMfa = false;
-  String _userId = '';
+  
+  Timer? _resendTimer;
+  int _secondsRemaining = 0;
+
+  @override
+  void dispose() {
+    _resendTimer?.cancel();
+    _emailCtrl.dispose();
+    _passwordCtrl.dispose();
+    _mfaCtrl.dispose();
+    super.dispose();
+  }
+
+  void _startResendTimer() {
+    setState(() => _secondsRemaining = 60);
+    _resendTimer?.cancel();
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_secondsRemaining > 0) {
+          _secondsRemaining--;
+        } else {
+          _resendTimer?.cancel();
+        }
+      });
+    });
+  }
 
   Future<void> _handleLogin() async {
     setState(() => _isLoading = true);
@@ -34,12 +61,15 @@ class _LoginScreenState extends State<LoginScreen> {
       if (res.statusCode == 200) {
         setState(() {
           _showMfa = true;
-          _userId = res.data['user_id'];
         });
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Credentials verified. Enter MFA code.')));
+        _startResendTimer();
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OTP sent to your email.')));
       }
+    } on DioException catch (e) {
+      final msg = e.response?.data['detail'] ?? 'Invalid credentials';
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid credentials')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -50,28 +80,54 @@ class _LoginScreenState extends State<LoginScreen> {
     final api = Provider.of<ApiService>(context, listen: false);
     final auth = Provider.of<AuthService>(context, listen: false);
 
+    final email = _emailCtrl.text.trim();
+    final otpCode = _mfaCtrl.text.trim();
+
     try {
-      final res = await api.verifyMfa({
-        'user_id': _userId,
-        'code': _mfaCtrl.text.trim(),
-      });
+      final body = {
+        'email': email,
+        'otp_code': otpCode,
+      };
+      
+      debugPrint("REQUEST: $body");
+      
+      final res = await api.verifyMfa(body);
+
+      debugPrint("RESPONSE STATUS: ${res.statusCode}");
+      debugPrint("RESPONSE BODY: ${res.data}");
 
       if (res.statusCode == 200) {
         final token = res.data['access_token'];
+        final role = res.data['role'];
+        
+        if (token == null || role == null) {
+          throw Exception("Missing token or role in response");
+        }
+
+        // Save token to secure storage via AuthService
         await auth.saveToken(token);
         
-        // In a real app, query user profile here. For now, decode token or derive.
-        // Let's assume the dummy role logic for routing
-        final isEmployee = _emailCtrl.text.contains("employee");
         if (mounted) {
-          Navigator.pushReplacementNamed(
-            context,
-            isEmployee ? '/employee_dashboard' : '/admin_dashboard',
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Verification successful!'))
           );
+          
+          // Navigation based on role
+          final targetRoute = (role == 'admin') ? '/admin_dashboard' : '/employee_dashboard';
+          debugPrint("NAVIGATING TO: $targetRoute");
+          
+          Navigator.pushReplacementNamed(context, targetRoute);
         }
+      } else {
+        throw Exception("Server returned ${res.statusCode}");
       }
+    } on DioException catch (e) {
+      debugPrint("DIO ERROR: ${e.response?.statusCode} - ${e.response?.data}");
+      final msg = e.response?.data['detail'] ?? 'Invalid OTP code';
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $msg")));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid MFA code')));
+      debugPrint("GENERAL ERROR: $e");
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -90,10 +146,18 @@ class _LoginScreenState extends State<LoginScreen> {
               const Icon(Icons.lock_outline, size: 80, color: Colors.blueAccent),
               const SizedBox(height: 32),
               Text(
-                'Welcome Back',
+                _showMfa ? 'Check your email!' : 'Welcome Back',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
+              if (_showMfa) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'We sent a 6-digit code to ${_emailCtrl.text.trim()}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              ],
               const SizedBox(height: 32),
               
               if (!_showMfa) ...[
@@ -119,17 +183,29 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ] else ...[
                 CustomTextField(
-                  label: 'MFA Code',
-                  hint: 'Enter 6-digit TOTP code',
+                  label: 'OTP Code',
+                  hint: 'Enter 6-digit code',
                   controller: _mfaCtrl,
                   prefixIcon: Icons.security,
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 16),
                 CustomButton(
-                  text: 'Verify MFA',
+                  text: 'Verify OTP',
                   isLoading: _isLoading,
                   onPressed: _handleMfaVerify,
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: _secondsRemaining == 0 ? _handleLogin : null,
+                  child: Text(
+                    _secondsRemaining > 0 
+                      ? 'Resend OTP in ${_secondsRemaining}s' 
+                      : 'Resend OTP',
+                    style: TextStyle(
+                      color: _secondsRemaining == 0 ? Colors.blueAccent : Colors.grey,
+                    ),
+                  ),
                 ),
               ],
             ],
