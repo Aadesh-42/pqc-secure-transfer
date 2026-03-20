@@ -5,7 +5,7 @@ from services.auth_service import (
     generate_mfa_secret, verify_mfa_token
 )
 from database.connection import supabase
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 import random
 from services.email_service import send_otp_email
 
@@ -62,7 +62,7 @@ async def login_user(user: UserLogin):
     
     # Generate 6-digit OTP
     otp_code = str(random.randint(100000, 999999))
-    expires_at = (datetime.utcnow() + timedelta(minutes=5)).isoformat()
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
     
     # Store OTP in sessions table
     session_data = {
@@ -82,27 +82,49 @@ async def login_user(user: UserLogin):
 @router.post("/mfa/verify")
 async def verify_mfa(mfa: MfaVerify):
     """Verify Email OTP and return JWT token."""
+    print(f"DEBUG: Attempting to verify MFA for email: {mfa.email}")
+    print(f"DEBUG: OTP code received from client: {mfa.otp_code}")
+
     # Get user to verify existence and get details
     user_res = supabase.table("users").select("id", "email", "role").eq("email", mfa.email).execute()
     if not user_res.data:
+        print(f"DEBUG ERROR: User not found for email: {mfa.email}")
         raise HTTPException(status_code=404, detail="User not found")
+    
     db_user = user_res.data[0]
+    user_id = db_user["id"]
+    print(f"DEBUG: Found User ID: {user_id}")
     
     # Check OTP in sessions table
-    session_res = supabase.table("sessions").select("*").eq("user_id", db_user["id"]).eq("otp_code", mfa.otp_code).execute()
+    print(f"DEBUG: Querying sessions table for user_id: {user_id} and otp_code: {mfa.otp_code}")
+    session_res = supabase.table("sessions").select("*").eq("user_id", user_id).eq("otp_code", mfa.otp_code).execute()
     
     if not session_res.data:
+        print(f"DEBUG FAILURE: No matching session found for user_id {user_id} and code {mfa.otp_code}")
+        # Let's check what IS in the table for this user
+        all_sessions = supabase.table("sessions").select("otp_code", "expires_at").eq("user_id", user_id).execute()
+        print(f"DEBUG: Existing OTPs for this user: {all_sessions.data}")
         raise HTTPException(status_code=401, detail="Invalid OTP code")
         
     session = session_res.data[0]
+    print(f"DEBUG: Found matching session: {session}")
     
     # Check expiry
-    expires_at = datetime.fromisoformat(session["expires_at"])
-    if datetime.utcnow() > expires_at:
+    expires_at = datetime.fromisoformat(session["expires_at"].replace('Z', '+00:00')) # Ensure aware
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+        
+    current_time = datetime.now(timezone.utc)
+    print(f"DEBUG: Current Time (UTC): {current_time}")
+    print(f"DEBUG: Session Expires At: {expires_at}")
+    
+    if current_time > expires_at:
+        print("DEBUG FAILURE: OTP has expired")
         # Delete expired OTP
         supabase.table("sessions").delete().eq("id", session["id"]).execute()
         raise HTTPException(status_code=401, detail="OTP expired")
         
+    print("DEBUG SUCCESS: OTP verified successfully!")
     # Delete OTP after use
     supabase.table("sessions").delete().eq("id", session["id"]).execute()
     
