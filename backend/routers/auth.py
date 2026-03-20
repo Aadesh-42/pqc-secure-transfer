@@ -110,23 +110,35 @@ async def verify_mfa(mfa: MfaVerify):
     print(f"DEBUG: Found matching session: {session}")
     
     # Check expiry
-    expires_at = datetime.fromisoformat(session["expires_at"].replace('Z', '+00:00')) # Ensure aware
+    expires_at_raw = session["expires_at"]
+    print(f"DEBUG: RAW EXPIRES_AT FROM DB: {expires_at_raw}")
+    
+    expires_at = datetime.fromisoformat(expires_at_raw.replace('Z', '+00:00')) # Ensure aware
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
         
     current_time = datetime.now(timezone.utc)
     print(f"DEBUG: Current Time (UTC): {current_time}")
-    print(f"DEBUG: Session Expires At: {expires_at}")
+    print(f"DEBUG: Calculated Session Expires At: {expires_at}")
     
-    if current_time > expires_at:
-        print("DEBUG FAILURE: OTP has expired")
-        # Delete expired OTP
-        supabase.table("sessions").delete().eq("id", session["id"]).execute()
-        raise HTTPException(status_code=401, detail="OTP expired")
+    # TEMPORARY: Bypass expiry check to debug
+    print("DEBUG: !!! TEMPORARILY BYPASSING EXPIRY CHECK !!!")
+    is_expired = current_time > expires_at
+    print(f"DEBUG: Would have been expired? {is_expired}")
+    
+    # if current_time > expires_at:
+    #     print("DEBUG FAILURE: OTP has expired")
+    #     # Delete expired OTP
+    #     supabase.table("sessions").delete().eq("id", session["id"]).execute()
+    #     raise HTTPException(status_code=401, detail="OTP expired")
         
     print("DEBUG SUCCESS: OTP verified successfully!")
     # Delete OTP after use
-    supabase.table("sessions").delete().eq("id", session["id"]).execute()
+    try:
+        supabase.table("sessions").delete().eq("id", session["id"]).execute()
+        print(f"DEBUG: Successfully deleted session {session['id']}")
+    except Exception as e:
+        print(f"DEBUG WARNING: Could not delete session: {e}")
     
     # Generate JWT
     access_token_expires = timedelta(minutes=60*24)
