@@ -82,42 +82,50 @@ async def login_user(user: UserLogin):
 @router.post("/mfa/verify")
 async def verify_mfa(mfa: MfaVerify):
     """Verify Email OTP and return JWT token."""
-    email = mfa.email
-    otp = mfa.otp_code
+    print(f"DEBUG: Received verification request for: {mfa.email}, {mfa.otp_code}")
     
-    print(f"DEBUG: Verifying OTP {otp} for {email}")
-
     # 1. Find user by email
-    user_res = supabase.table("users").select("id", "email", "role").eq("email", email).execute()
+    user_res = supabase.table("users").select("id", "email", "role").eq("email", mfa.email).execute()
     if not user_res.data:
+        print(f"DEBUG: User {mfa.email} not found")
         raise HTTPException(status_code=404, detail="User not found")
     db_user = user_res.data[0]
     
-    # 2. Find session by user_id and otp_code
-    session_res = supabase.table("sessions").select("*").eq("user_id", db_user["id"]).eq("otp_code", otp).execute()
+    # 2. Find latest OTP session for this user
+    session_res = supabase.table("sessions").select("*").eq("user_id", db_user["id"]).eq("otp_code", mfa.otp_code).execute()
+    
     if not session_res.data:
+        print(f"DEBUG: No valid session/OTP found for {mfa.email}")
         raise HTTPException(status_code=401, detail="Invalid OTP code")
         
     session = session_res.data[0]
     
-    # 3. Verify expiry (kept simple but functional)
+    # 3. Verify expiry
     expires_at = datetime.fromisoformat(session["expires_at"].replace('Z', '+00:00'))
     if expires_at.tzinfo is None: expires_at = expires_at.replace(tzinfo=timezone.utc)
     
     if datetime.now(timezone.utc) > expires_at:
+        print(f"DEBUG: OTP for {mfa.email} has expired")
         supabase.table("sessions").delete().eq("id", session["id"]).execute()
         raise HTTPException(status_code=401, detail="OTP expired")
         
-    # Success: Delete OTP and generate JWT
+    print(f"DEBUG: Verification successful for {mfa.email}")
+    # Success: Delete OTP after use
     supabase.table("sessions").delete().eq("id", session["id"]).execute()
     
+    # Generate JWT
     access_token_expires = timedelta(minutes=60*24)
     access_token = create_access_token(
         data={"sub": db_user["email"], "id": str(db_user["id"]), "role": db_user["role"]},
         expires_delta=access_token_expires
     )
     
-    return {"access_token": access_token, "token_type": "bearer", "user_id": db_user["id"], "role": db_user["role"]}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer", 
+        "user_id": db_user["id"], 
+        "role": db_user["role"]
+    }
 
 @router.post("/update_kyber_keys")
 async def update_kyber_keys(email: str):
