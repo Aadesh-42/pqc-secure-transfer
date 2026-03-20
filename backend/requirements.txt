@@ -12,3 +12,4 @@ email-validator
 sqlalchemy
 httpx
 cryptography
+sib-api-v3-sdk
