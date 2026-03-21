@@ -76,60 +76,39 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleMfaVerify() async {
-    setState(() => _isLoading = true);
-    final api = Provider.of<ApiService>(context, listen: false);
-    final auth = Provider.of<AuthService>(context, listen: false);
-
-    final email = _emailCtrl.text.trim();
-    final otpCode = _mfaCtrl.text.trim();
+    final body = {
+      "email": _emailCtrl.text.trim().toLowerCase(),
+      "otp_code": _mfaCtrl.text.trim()
+    };
+    print("SENDING VERIFY: $body");
+    
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    final storage = Provider.of<AuthService>(context, listen: false);
 
     try {
-      final body = {
-        'email': email,
-        'otp_code': otpCode,
-      };
+      final response = await apiService.verifyMfa(body);
+      print("VERIFY RESPONSE: ${response.statusCode}");
+      print("VERIFY BODY: ${response.data}");
       
-      debugPrint("REQUEST: $body");
+      final role = response.data["role"];
+      final token = response.data["access_token"];
       
-      final res = await api.verifyMfa(body);
-
-      debugPrint("RESPONSE STATUS: ${res.statusCode}");
-      debugPrint("RESPONSE BODY: ${res.data}");
-
-      if (res.statusCode == 200) {
-        final token = res.data['access_token'];
-        final role = res.data['role'];
-        
-        if (token == null || role == null) {
-          throw Exception("Missing token or role in response");
+      await storage.saveToken(token); // Using AuthService wrapper
+      // Project uses auth_service for storage
+      
+      if (mounted) {
+        if (role == "admin") {
+          Navigator.pushReplacementNamed(context, "/admin_dashboard");
+        } else {
+          Navigator.pushReplacementNamed(context, "/employee_dashboard");
         }
-
-        // Save token to secure storage via AuthService
-        await auth.saveToken(token);
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Verification successful!'))
-          );
-          
-          // Navigation based on role
-          final targetRoute = (role == 'admin') ? '/admin_dashboard' : '/employee_dashboard';
-          debugPrint("NAVIGATING TO: $targetRoute");
-          
-          Navigator.pushReplacementNamed(context, targetRoute);
-        }
-      } else {
-        throw Exception("Server returned ${res.statusCode}");
       }
-    } on DioException catch (e) {
-      debugPrint("DIO ERROR: ${e.response?.statusCode} - ${e.response?.data}");
-      final msg = e.response?.data['detail'] ?? 'Invalid OTP code';
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $msg")));
     } catch (e) {
-      debugPrint("GENERAL ERROR: $e");
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-    } finally {
-      setState(() => _isLoading = false);
+      print("VERIFY ERROR: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("OTP Failed: $e")));
+      }
     }
   }
 
