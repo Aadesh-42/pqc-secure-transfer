@@ -68,8 +68,16 @@ class _SendFileScreenState extends State<SendFileScreen> {
     final auth = AuthService();
     
     try {
+      final token = await auth.getToken();
+      if (token == null) {
+        throw Exception('You must be logged in (Token missing)');
+      }
+      print("DEBUG [SendFile]: Token found: ${token.substring(0, 10)}...");
+
       final currentUser = await auth.getCurrentUser();
-      if (currentUser == null) throw Exception('You must be logged in');
+      if (currentUser == null) {
+        throw Exception('You must be logged in (User data missing)');
+      }
 
       // STEP 1: Get Employee Public Key
       print("Step 1: Fetching employee public key");
