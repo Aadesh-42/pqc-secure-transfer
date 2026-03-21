@@ -11,32 +11,39 @@ async def get_tasks():
     result = supabase.table("tasks").select("*").execute()
     return result.data
 
-@router.post("/create", response_model=TaskResponse)
-async def create_task(task: TaskCreate):
-    """Create a new task."""
-    try:
-        task_data = task.model_dump(exclude_unset=True)
-        print(f"DEBUG: STARTING task creation with data: {task_data}")
-        
-        # Ensure UUID conversion if possible
-        if task_data.get("assigned_to"):
-            from uuid import UUID
-            try:
-                task_data["assigned_to"] = str(UUID(task_data["assigned_to"]))
-            except ValueError:
-                print(f"DEBUG: assigned_to is not a valid UUID string: {task_data['assigned_to']}")
+from fastapi.security import OAuth2PasswordBearer
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
-        result = supabase.table("tasks").insert(task_data).execute()
+@router.post("/create")
+async def create_task(
+    task: TaskCreate,
+    token: str = Depends(oauth2_scheme)
+):
+    print(f"DEBUG: Creating task from request model: {task}")
+    try:
+        data = {
+            "title": task.title,
+            "description": task.description,
+            "assigned_to": task.assigned_to,
+            "priority": task.priority,
+            "status": "pending",
+            "due_date": task.due_date
+        }
+        print(f"DEBUG: Inserting data into Supabase: {data}")
+        result = supabase.table("tasks").insert(data).execute()
         
         if not result.data:
-            print(f"DEBUG: Supabase returned NO DATA for insert result")
-            raise HTTPException(status_code=500, detail="Failed to create task in DB")
-            
-        print(f"DEBUG: Task created successfully! ID: {result.data[0]['id']}")
+             print("DEBUG: Supabase returned NO DATA")
+             raise HTTPException(status_code=500, detail="Failed to create task in DB")
+             
+        print(f"DEBUG: Task created SUCCESS. Result: {result.data[0]}")
         return result.data[0]
     except Exception as e:
-        print(f"DEBUG: ERROR in create_task: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"DEBUG: ERROR creating task: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 @router.patch("/{task_id}/status", response_model=TaskResponse)
 async def update_task_status(task_id: str, task_update: TaskUpdate):
