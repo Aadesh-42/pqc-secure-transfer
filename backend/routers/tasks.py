@@ -1,12 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends
-from typing import List
+from typing import List, Optional
 from models.task import TaskCreate, TaskUpdate, TaskResponse
 from database.connection import supabase
-
-router = APIRouter(prefix="/tasks", tags=["Tasks"])
-
 from services.auth_service import SECRET_KEY, ALGORITHM
 from jose import jwt
+from .auth import oauth2_scheme
+
+router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
 @router.get("", response_model=List[TaskResponse])
 async def get_tasks(
@@ -31,8 +31,6 @@ async def get_tasks(
         print(f"DEBUG: Error in get_tasks: {e}")
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-from fastapi.security import OAuth2PasswordBearer
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 @router.post("/create")
 async def create_task(
