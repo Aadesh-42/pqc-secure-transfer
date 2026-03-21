@@ -95,4 +95,8 @@ class ApiService {
 
   // Audit Logs Endpoint
   Future<Response> getAuditLogs() => _dio.get('/audit/logs');
+
+  // User Helpers
+  Future<String?> getUserId() => _authService.getUserId();
+  Future<String?> getUserEmail() => _authService.getEmail();
 }
