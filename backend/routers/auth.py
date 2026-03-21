@@ -9,7 +9,10 @@ from datetime import timedelta, datetime, timezone
 import random
 from services.email_service import send_otp_email
 
+from fastapi.security import OAuth2PasswordBearer
+
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 @router.post("/register", response_model=UserResponse)
 async def register_user(user: UserCreate):
