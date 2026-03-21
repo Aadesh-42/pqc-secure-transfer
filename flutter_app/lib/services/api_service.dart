@@ -20,29 +20,24 @@ class ApiService {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          print("API CALL REQUEST: ${options.method} ${options.baseUrl}${options.path}");
-          if (options.queryParameters.isNotEmpty) {
-            print("QUERY PARAMS: ${options.queryParameters}");
-          }
           final token = await _authService.getToken();
+          print("DEBUG [API Request]: ${options.method} ${options.path}");
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
+            print("DEBUG [API Request]: Token attached (starts with ${token.substring(0, 10)}...)");
+          } else {
+            print("DEBUG [API Request]: NO TOKEN FOUND");
           }
           return handler.next(options);
         },
         onResponse: (response, handler) {
-          print("API CALL RESPONSE [${response.statusCode}] FOR: ${response.requestOptions.path}");
-          print("RESPONSE BODY: ${response.data}");
+          print("DEBUG [API Response]: ${response.statusCode} from ${response.requestOptions.path}");
           return handler.next(response);
         },
         onError: (DioException e, handler) async {
-          print("API CALL ERROR [${e.response?.statusCode}] FOR: ${e.requestOptions.path}");
-          print("ERROR MESSAGE: ${e.message}");
+          print("DEBUG [API Error]: ${e.response?.statusCode} ${e.message}");
           if (e.response?.statusCode == 401) {
-            // Handle unauthorized globally (e.g., token expired)
             await _authService.logout();
-            // Need a way to navigate to login without context here. 
-            // In a real app we might emit a stream event.
           }
           return handler.next(e);
         }
