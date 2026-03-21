@@ -1,78 +1,106 @@
 from fastapi import APIRouter, HTTPException, Depends
-from typing import List, Optional
-from models.task import TaskCreate, TaskUpdate, TaskResponse
+from fastapi.security import OAuth2PasswordBearer
+from jose import jwt, JWTError
+from typing import Optional, List
+import os
+
 from database.connection import supabase
-from services.auth_service import SECRET_KEY, ALGORITHM
-from jose import jwt
-from .auth import oauth2_scheme
+from models.task import TaskCreate
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
-@router.get("", response_model=List[TaskResponse])
-async def get_tasks(
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/auth/login"
+)
+
+SECRET_KEY = os.getenv(
+    "JWT_SECRET",
+    "Aadesh2026PQCSecureApp$Key#32XvBh"
+)
+
+ALGORITHM = "HS256"
+
+def get_current_user(
     token: str = Depends(oauth2_scheme)
 ):
-    """Get tasks filtered by role."""
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token, 
+            SECRET_KEY, 
+            algorithms=[ALGORITHM]
+        )
         user_id = payload.get("sub")
         role = payload.get("role")
-        
-        print(f"DEBUG: Getting tasks for user: {user_id}, Role: {role}")
-        
-        if role == "admin":
-            result = supabase.table("tasks").select("*").execute()
-        else:
-            result = supabase.table("tasks").select("*").eq("assigned_to", user_id).execute()
-        
-        print(f"DEBUG: Found {len(result.data)} tasks")
-        return result.data
-    except Exception as e:
-        print(f"DEBUG: Error in get_tasks: {e}")
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+        email = payload.get("email")
+        if user_id is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token"
+            )
+        return {
+            "user_id": user_id,
+            "role": role,
+            "email": email
+        }
+    except JWTError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token"
+        )
 
+@router.get("")
+async def get_tasks(
+    current_user: dict = Depends(
+        get_current_user)
+):
+    user_id = current_user["user_id"]
+    role = current_user["role"]
+    print(f"Getting tasks for {user_id} role:{role}")
+    
+    if role == "admin":
+        result = supabase.table("tasks")\
+            .select("*")\
+            .execute()
+    else:
+        result = supabase.table("tasks")\
+            .select("*")\
+            .eq("assigned_to", user_id)\
+            .execute()
+    
+    print(f"Tasks found: {len(result.data)}")
+    return result.data
 
 @router.post("/create")
 async def create_task(
     task: TaskCreate,
-    token: str = Depends(oauth2_scheme)
+    current_user: dict = Depends(
+        get_current_user)
 ):
-    print(f"DEBUG: Creating task from request model: {task}")
-    try:
-        data = {
-            "title": task.title,
-            "description": task.description,
-            "assigned_to": task.assigned_to,
-            "priority": task.priority,
-            "status": "pending",
-            "due_date": task.due_date
-        }
-        print(f"DEBUG: Inserting data into Supabase: {data}")
-        result = supabase.table("tasks").insert(data).execute()
-        
-        if not result.data:
-             print("DEBUG: Supabase returned NO DATA")
-             raise HTTPException(status_code=500, detail="Failed to create task in DB")
-             
-        print(f"DEBUG: Task created SUCCESS. Result: {result.data[0]}")
-        return result.data[0]
-    except Exception as e:
-        print(f"DEBUG: ERROR creating task: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
-
-@router.patch("/{task_id}/status", response_model=TaskResponse)
-async def update_task_status(task_id: str, task_update: TaskUpdate):
-    """Update task status."""
-    result = supabase.table("tasks").update(task_update.model_dump(exclude_unset=True)).eq("id", task_id).execute()
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Task not found or failed to update")
+    print(f"Creating task: {task}")
+    data = {
+        "title": task.title,
+        "description": task.description,
+        "assigned_to": task.assigned_to,
+        "priority": task.priority,
+        "status": "pending",
+        "due_date": task.due_date
+    }
+    result = supabase.table("tasks")\
+        .insert(data)\
+        .execute()
+    print(f"Task created: {result.data}")
     return result.data[0]
 
-@router.get("/assigned", response_model=List[TaskResponse])
-async def get_assigned_tasks(user_id: str):
-    """Get tasks assigned to a specific user."""
-    result = supabase.table("tasks").select("*").eq("assigned_to", user_id).execute()
-    return result.data
+@router.patch("/{task_id}/status")
+async def update_task_status(
+    task_id: str,
+    status_update: dict,
+    current_user: dict = Depends(
+        get_current_user)
+):
+    result = supabase.table("tasks")\
+        .update({"status": 
+            status_update.get("status")})\
+        .eq("id", task_id)\
+        .execute()
+    return result.data[0]
