@@ -69,14 +69,15 @@ class _SendFileScreenState extends State<SendFileScreen> {
     
     try {
       final token = await auth.getToken();
-      if (token == null) {
-        throw Exception('You must be logged in (Token missing)');
-      }
-      print("DEBUG [SendFile]: Token found: ${token.substring(0, 10)}...");
+      final userId = await auth.getUserId();
+      final userEmail = await auth.getEmail();
 
-      final currentUser = await auth.getCurrentUser();
-      if (currentUser == null) {
-        throw Exception('You must be logged in (User data missing)');
+      print("DEBUG [SendFile]: Token Found: ${token != null}");
+      print("DEBUG [SendFile]: UserID: $userId");
+      print("DEBUG [SendFile]: Email: $userEmail");
+
+      if (token == null || userId == null) {
+        throw Exception('You must be logged in (Session data incomplete. Please log out and back in.)');
       }
 
       // STEP 1: Get Employee Public Key
