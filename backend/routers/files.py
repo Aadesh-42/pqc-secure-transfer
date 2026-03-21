@@ -3,8 +3,7 @@ from pydantic import BaseModel
 import base64
 from typing import Optional, List
 from database.connection import supabase
-from services.pqc_service import encrypt_file, sign_file, verify_signature, decrypt_file
-from routers.auth import get_current_user
+from services.pqc_service import encrypt_file, sign_file, verify_signature, decrypt_file, safe_b64decode
 
 router = APIRouter(prefix="/files", tags=["Secure Files"])
 
@@ -103,6 +102,7 @@ async def confirm_file_receipt(file_id: str, request: Request, current_user: dic
 @router.post("/{file_id}/decrypt")
 async def get_file_for_decryption(file_id: str, req: FileDecryptRequest, request: Request, current_user: dict = Depends(get_current_user)):
     """Employee decrypts the file."""
+    print(f"DEBUG: Decryption request for file {file_id}")
     res = supabase.table("secure_files").select("*").eq("id", file_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="File not found")
@@ -111,13 +111,21 @@ async def get_file_for_decryption(file_id: str, req: FileDecryptRequest, request
     if file_record["receiver_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Not authorized to decrypt this file")
 
+    print(f"DEBUG: Received private key length: {len(req.receiver_private_key_b64)}")
+    print(f"DEBUG: Encrypted payload length: {len(file_record['encrypted_payload'])}")
+    print(f"DEBUG: Kyber ciphertext length: {len(file_record['kyber_ciphertext'])}")
+
+    # Verify signature first
     is_valid = verify_signature(
         file_record["encrypted_payload"], 
         file_record["dilithium_signature"], 
         req.admin_public_key_b64
     )
     if not is_valid:
+        print("DEBUG: Signature verification FAILED")
         raise HTTPException(status_code=403, detail="Signature verification failed")
+    
+    print("DEBUG: Signature verification PASSED")
     
     try:
         decrypted_bytes = decrypt_file(
@@ -125,13 +133,18 @@ async def get_file_for_decryption(file_id: str, req: FileDecryptRequest, request
             file_record["kyber_ciphertext"],
             req.receiver_private_key_b64
         )
+        print(f"DEBUG: Decryption SUCCESS. Decrypted {len(decrypted_bytes)} bytes")
     except Exception as e:
+        print(f"DEBUG: PQC Decryption ERROR: {e}")
         raise HTTPException(status_code=500, detail=f"PQC Decryption failed: {str(e)}")
 
     log_audit(current_user["id"], "decrypt_file", {"file_id": file_id}, request)
+    
+    # Ensure result is clean base64
+    b64_result = base64.b64encode(decrypted_bytes).decode('utf-8')
     return {
         "message": "File decrypted successfully", 
-        "file_bytes_b64": base64.b64encode(decrypted_bytes).decode('utf-8')
+        "file_bytes_b64": b64_result
     }
 
 @router.get("/received")
