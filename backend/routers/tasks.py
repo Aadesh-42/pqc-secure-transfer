@@ -5,11 +5,31 @@ from database.connection import supabase
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
+from services.auth_service import SECRET_KEY, ALGORITHM
+from jose import jwt
+
 @router.get("", response_model=List[TaskResponse])
-async def get_tasks():
-    """Get all tasks."""
-    result = supabase.table("tasks").select("*").execute()
-    return result.data
+async def get_tasks(
+    token: str = Depends(oauth2_scheme)
+):
+    """Get tasks filtered by role."""
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        role = payload.get("role")
+        
+        print(f"DEBUG: Getting tasks for user: {user_id}, Role: {role}")
+        
+        if role == "admin":
+            result = supabase.table("tasks").select("*").execute()
+        else:
+            result = supabase.table("tasks").select("*").eq("assigned_to", user_id).execute()
+        
+        print(f"DEBUG: Found {len(result.data)} tasks")
+        return result.data
+    except Exception as e:
+        print(f"DEBUG: Error in get_tasks: {e}")
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
 
 from fastapi.security import OAuth2PasswordBearer
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
