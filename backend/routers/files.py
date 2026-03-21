@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
 import base64
 from typing import Optional, List
 from database.connection import supabase
 from services.pqc_service import encrypt_file, sign_file, verify_signature, decrypt_file
+from routers.auth import get_current_user
 
 router = APIRouter(prefix="/files", tags=["Secure Files"])
 
@@ -41,7 +42,7 @@ def log_audit(user_id: str, action: str, metadata: dict, request: Request):
 # --- Endpoints ---
 
 @router.post("/encrypt")
-async def encrypt_file_endpoint(req: FileEncryptRequest):
+async def encrypt_file_endpoint(req: FileEncryptRequest, current_user: dict = Depends(get_current_user)):
     """Encrypt payload separately for step-by-step flow."""
     try:
         file_bytes = base64.b64decode(req.file_bytes_b64)
@@ -53,7 +54,7 @@ async def encrypt_file_endpoint(req: FileEncryptRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/sign")
-async def sign_file_endpoint(req: FileSignRequest):
+async def sign_file_endpoint(req: FileSignRequest, current_user: dict = Depends(get_current_user)):
     """Sign payload separately for step-by-step flow."""
     try:
         sig = sign_file(req.encrypted_payload_b64, req.private_key)
@@ -63,7 +64,7 @@ async def sign_file_endpoint(req: FileSignRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/send")
-async def send_file(req: FileSendRequest, request: Request):
+async def send_file(req: FileSendRequest, request: Request, current_user: dict = Depends(get_current_user)):
     """
     Final step: store metadata and ciphertexts in DB.
     """
@@ -85,24 +86,30 @@ async def send_file(req: FileSendRequest, request: Request):
     return {"message": "File record saved successfully", "file": file_record}
 
 @router.post("/{file_id}/confirm")
-async def confirm_file_receipt(file_id: str, request: Request, receiver_id: str):
+async def confirm_file_receipt(file_id: str, request: Request, current_user: dict = Depends(get_current_user)):
     """Employee confirms receipt of a file."""
+    # Verify the current user is indeed the receiver
+    res = supabase.table("secure_files").select("receiver_id").eq("id", file_id).execute()
+    if not res.data or res.data[0]["receiver_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="You are not authorized to confirm this file")
+
     update_res = supabase.table("secure_files").update({"status": "confirmed"}).eq("id", file_id).execute()
     if not update_res.data:
         raise HTTPException(status_code=404, detail="File not found or update failed")
     
-    log_audit(receiver_id, "confirm_file_receipt", {"file_id": file_id}, request)
+    log_audit(current_user["id"], "confirm_file_receipt", {"file_id": file_id}, request)
     return {"message": "Receipt confirmed", "file": update_res.data[0]}
 
 @router.post("/{file_id}/decrypt")
-async def get_file_for_decryption(file_id: str, req: FileDecryptRequest, request: Request):
+async def get_file_for_decryption(file_id: str, req: FileDecryptRequest, request: Request, current_user: dict = Depends(get_current_user)):
     """Employee decrypts the file."""
     res = supabase.table("secure_files").select("*").eq("id", file_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="File not found")
         
     file_record = res.data[0]
-    receiver_id = file_record["receiver_id"]
+    if file_record["receiver_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized to decrypt this file")
 
     is_valid = verify_signature(
         file_record["encrypted_payload"], 
@@ -121,14 +128,14 @@ async def get_file_for_decryption(file_id: str, req: FileDecryptRequest, request
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"PQC Decryption failed: {str(e)}")
 
-    log_audit(receiver_id, "decrypt_file", {"file_id": file_id}, request)
+    log_audit(current_user["id"], "decrypt_file", {"file_id": file_id}, request)
     return {
         "message": "File decrypted successfully", 
         "file_bytes_b64": base64.b64encode(decrypted_bytes).decode('utf-8')
     }
 
 @router.get("/received")
-async def get_received_files(receiver_id: str):
-    """Get all files received by a specific user."""
-    result = supabase.table("secure_files").select("*").eq("receiver_id", receiver_id).execute()
+async def get_received_files(current_user: dict = Depends(get_current_user)):
+    """Get all files received by the logged-in user."""
+    result = supabase.table("secure_files").select("*").eq("receiver_id", current_user["id"]).execute()
     return result.data
