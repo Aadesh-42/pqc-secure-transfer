@@ -29,7 +29,8 @@ class _TaskChecklistScreenState extends State<TaskChecklistScreen> {
       final user = await auth.getCurrentUser();
       if (user == null) return;
 
-      final res = await api.getAssignedTasks(user.id);
+      // Now let the backend filter by the JWT token automatically
+      final res = await api.getTasks();
       if (res.statusCode == 200) {
         setState(() {
           _tasks = (res.data as List).map((t) => TaskModel.fromJson(t)).toList();
