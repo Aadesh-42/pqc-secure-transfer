@@ -158,7 +158,7 @@ class _SendFileScreenState extends State<SendFileScreen> {
           Step(
             title: const Text('Select Recipient & File'),
             content: Column(
-              crossAxisAlignment: CrossAxisAlignment.crossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DropdownButtonFormField<String>(
                   value: _selectedEmployeeId,
