@@ -46,7 +46,9 @@ def encrypt_file(file_bytes: bytes, receiver_public_key_b64: str) -> tuple[str, 
     Encrypt file with AES-256-GCM using shared secret.
     Returns: (encrypted_payload_b64, kyber_ciphertext_b64)
     """
+    print(f"DEBUG: PQC Encrypting file of size: {len(file_bytes)} bytes")
     if not OQS_AVAILABLE:
+        print("DEBUG: Using MOCK PQC encryption")
         # Mock encryption (using a fixed mock secret for development)
         mock_secret = b"this_is_a_mock_secret_32_bytes!!"
         aesgcm = AESGCM(mock_secret)
@@ -56,6 +58,7 @@ def encrypt_file(file_bytes: bytes, receiver_public_key_b64: str) -> tuple[str, 
         mock_ciphertext = os.urandom(1088)
         return base64.b64encode(encrypted_payload).decode('utf-8'), base64.b64encode(mock_ciphertext).decode('utf-8')
 
+    print(f"DEBUG: Using REAL Kyber-768 encryption. Key prefix: {receiver_public_key_b64[:20]}...")
     receiver_public_key = base64.b64decode(receiver_public_key_b64)
     
     with oqs.KeyEncapsulation('Kyber768') as sender:
@@ -64,6 +67,7 @@ def encrypt_file(file_bytes: bytes, receiver_public_key_b64: str) -> tuple[str, 
         nonce = os.urandom(12)
         encrypted_data = aesgcm.encrypt(nonce, file_bytes, None)
         encrypted_payload = nonce + encrypted_data
+        print("DEBUG: Kyber encryption COMPLETED")
         return base64.b64encode(encrypted_payload).decode('utf-8'), base64.b64encode(kyber_ciphertext).decode('utf-8')
 
 # 4. FILE SIGNING (Admin signs)
