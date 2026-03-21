@@ -51,14 +51,23 @@ async def register_user(user: UserCreate):
 @router.post("/login")
 async def login_user(user: UserLogin):
     """Login and verify credentials. (Step 1 of MFA)"""
-    result = supabase.table("users").select("*").eq("email", user.email).execute()
+    email_clean = user.email.lower().strip()
+    print(f"DEBUG: Attempting login for email: {email_clean}")
+    
+    result = supabase.table("users").select("*").ilike("email", email_clean).execute()
+    
     if not result.data:
+        print(f"DEBUG: User not found for email: {email_clean}")
         raise HTTPException(status_code=404, detail="User not found")
         
     db_user = result.data[0]
+    print(f"DEBUG: Found user in DB: {db_user['email']} (ID: {db_user['id']})")
+    
     if not verify_password(user.password, db_user["password_hash"]):
-        print(f"Login failed for {user.email}: Incorrect password")
+        print(f"DEBUG: Password verification failed for {email_clean}")
         raise HTTPException(status_code=401, detail="Incorrect password")
+    
+    print(f"DEBUG: Password verified! Proceeding to generate OTP for {email_clean}")
     
     # Generate 6-digit OTP
     otp_code = str(random.randint(100000, 999999))
