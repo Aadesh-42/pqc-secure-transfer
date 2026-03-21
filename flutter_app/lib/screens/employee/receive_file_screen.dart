@@ -104,16 +104,23 @@ class _ReceiveFileScreenState extends State<ReceiveFileScreen> {
     try {
       final api = Provider.of<ApiService>(context, listen: false);
       
-      // The backend needs the receiver's private key and the sender's (admin) public key
-      // For now, admin public key is assumed known by backend or provided as a static mock identifier
+      print("DEBUG [Decrypt]: Private Key Length: ${_localKyberPrivateKey?.length}");
+      print("DEBUG [Decrypt]: Private Key Prefix: ${_localKyberPrivateKey?.substring(0, 15)}...");
+
       final res = await api.decryptFile(file['id'], {
         'receiver_private_key_b64': _localKyberPrivateKey,
         'admin_public_key_b64': 'admin_dilithium_public_key_standard',
       });
       
       if (res.statusCode == 200) {
+        final b64Content = res.data['file_bytes_b64'];
+        print("DEBUG [Decrypt]: Received Base64 content length: ${b64Content?.length}");
+        
+        final decodedBytes = base64Decode(b64Content);
+        print("DEBUG [Decrypt]: Decoded bytes length: ${decodedBytes.length}");
+
         setState(() {
-          _decryptedText = utf8.decode(base64Decode(res.data['file_bytes_b64']));
+          _decryptedText = utf8.decode(decodedBytes, allowMalformed: true);
         });
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File decrypted successfully!')));
       }
