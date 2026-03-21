@@ -85,9 +85,10 @@ class ApiService {
   Future<Response> encryptFile(Map<String, dynamic> data) => _dio.post('/files/encrypt', data: data);
   Future<Response> signFile(Map<String, dynamic> data) => _dio.post('/files/sign', data: data);
   Future<Response> sendFile(Map<String, dynamic> data) => _dio.post('/files/send', data: data);
-  Future<Response> getReceivedFiles(String userId) => _dio.get('/files/received', queryParameters: {'receiver_id': userId});
-  Future<Response> confirmFile(String id, String userId) => _dio.post('/files/$id/confirm', queryParameters: {'receiver_id': userId});
+  Future<Response> getReceivedFiles() => _dio.get('/files/received');
+  Future<Response> confirmFile(String id) => _dio.post('/files/$id/confirm');
   Future<Response> decryptFile(String id, Map<String, dynamic> data) => _dio.post('/files/$id/decrypt', data: data);
+  Future<Response> regenerateKeys() => _dio.get('/auth/regenerate_keys');
 
   // Messages Endpoints
   Future<Response> getMessages(String userId) => _dio.get('/messages/$userId');
