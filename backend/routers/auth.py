@@ -169,6 +169,14 @@ async def update_kyber_keys(email: str):
     except ImportError:
         raise HTTPException(status_code=500, detail="PQC Not Available on this system")
 
+@router.get("/{user_id}/public_key")
+async def get_user_public_key(user_id: str):
+    """Get a user's Kyber public key."""
+    result = supabase.table("users").select("kyber_public_key").eq("id", user_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="User or public key not found")
+    return {"public_key": result.data[0]["kyber_public_key"]}
+
 @router.get("/employees")
 async def get_employees():
     """Get all users with the 'employee' role."""
