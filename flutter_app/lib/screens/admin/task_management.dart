@@ -40,6 +40,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load tasks: $e')));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -122,16 +124,21 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
+                final api = Provider.of<ApiService>(context, listen: false);
                 Navigator.pop(ctx);
                 setState(() => _isLoading = true);
                 try {
-                  await Provider.of<ApiService>(context, listen: false).createTask({
+                  final res = await api.createTask({
                     'title': titleCtrl.text,
                     'description': descCtrl.text,
                     'priority': priority,
                     'assigned_to': assignedTo,
                   });
-                  _loadTasks();
+                  if (res.statusCode == 201 || res.statusCode == 200) {
+                    await _loadTasks();
+                  } else {
+                     setState(() => _isLoading = false);
+                  }
                 } catch (e) {
                   if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to create task: $e')));
                   setState(() => _isLoading = false);
@@ -156,31 +163,49 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
                 await _loadTasks();
                 await _loadEmployees();
               },
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _tasks.length,
-                itemBuilder: (context, index) {
-                  final task = _tasks[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading: Icon(
-                        task.status == 'completed' ? Icons.check_circle : Icons.radio_button_unchecked,
-                        color: task.status == 'completed' ? Colors.green : Colors.grey,
-                      ),
-                      title: Text(task.title),
-                      subtitle: Text("Assignee: ${_getAssigneeEmail(task.assignedTo)} - Priority: ${task.priority}"),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (val) => _updateTaskStatus(task.id, val),
-                        itemBuilder: (context) => const [
-                          PopupMenuItem(value: 'pending', child: Text('Mark Pending')),
-                          PopupMenuItem(value: 'completed', child: Text('Mark Completed')),
-                        ],
-                      ),
+              child: _tasks.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.task_outlined, size: 64, color: Colors.grey),
+                        const SizedBox(height: 16),
+                        const Text(
+                          "No tasks yet. Click + to create one!",
+                          style: TextStyle(color: Colors.grey, fontSize: 16),
+                        ),
+                        TextButton(
+                          onPressed: _loadInitialData, 
+                          child: const Text("Refresh")
+                        )
+                      ],
                     ),
-                  );
-                },
-              ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _tasks.length,
+                    itemBuilder: (context, index) {
+                      final task = _tasks[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          leading: Icon(
+                            task.status == 'completed' ? Icons.check_circle : Icons.radio_button_unchecked,
+                            color: task.status == 'completed' ? Colors.green : Colors.grey,
+                          ),
+                          title: Text(task.title),
+                          subtitle: Text("Assignee: ${_getAssigneeEmail(task.assignedTo)} - Priority: ${task.priority}"),
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (val) => _updateTaskStatus(task.id, val),
+                            itemBuilder: (context) => const [
+                              PopupMenuItem(value: 'pending', child: Text('Mark Pending')),
+                              PopupMenuItem(value: 'completed', child: Text('Mark Completed')),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showCreateTaskDialog,
