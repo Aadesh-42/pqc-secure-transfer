@@ -129,7 +129,7 @@ class _SendFileScreenState extends State<SendFileScreen> {
       print("Step 4: Uploading to server");
       
       final sendRes = await api.sendFile({
-        'sender_id': currentUser.id,
+        'sender_id': userId,
         'receiver_id': _selectedEmployeeId,
         'encrypted_payload': encryptedPayload,
         'kyber_ciphertext': kyberCiphertext,
