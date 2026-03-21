@@ -8,6 +8,7 @@ class TaskBase(BaseModel):
     description: Optional[str] = None
     assigned_to: Optional[str] = None
     priority: str = "medium"
+    status: str = "pending"
     due_date: Optional[str] = None
 
 class TaskCreate(TaskBase):
