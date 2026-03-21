@@ -1,11 +1,70 @@
-from fastapi import APIRouter, HTTPException, Request, Depends
-from pydantic import BaseModel
-import base64
+from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi.security import OAuth2PasswordBearer
+from jose import jwt, JWTError
 from typing import Optional, List
+import os
+import base64
+
 from database.connection import supabase
-from services.pqc_service import encrypt_file, sign_file, verify_signature, decrypt_file, safe_b64decode
+from services.pqc_service import (
+    encrypt_file,
+    decrypt_file,
+    sign_file,
+    verify_signature,
+    generate_kyber_keypair
+)
 
 router = APIRouter(prefix="/files", tags=["Secure Files"])
+
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/auth/login"
+)
+
+SECRET_KEY = os.getenv(
+    "JWT_SECRET",
+    "Aadesh2026PQCSecureApp$Key#32XvBh"
+)
+
+ALGORITHM = "HS256"
+
+def get_current_user(
+    token: str = Depends(oauth2_scheme)
+):
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+        user_id = payload.get("sub")
+        role = payload.get("role")
+        email = payload.get("email")
+        if user_id is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token"
+            )
+        return {
+            "user_id": user_id,
+            "role": role,
+            "email": email
+        }
+    except JWTError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token"
+        )
+
+def safe_b64decode(data: str) -> bytes:
+    if data is None:
+        raise ValueError(
+            "Data cannot be None"
+        )
+    data = data.strip()
+    padding = 4 - len(data) % 4
+    if padding != 4:
+        data += '=' * padding
+    return base64.b64decode(data)
 
 # --- Models ---
 class FileEncryptRequest(BaseModel):
@@ -89,14 +148,14 @@ async def confirm_file_receipt(file_id: str, request: Request, current_user: dic
     """Employee confirms receipt of a file."""
     # Verify the current user is indeed the receiver
     res = supabase.table("secure_files").select("receiver_id").eq("id", file_id).execute()
-    if not res.data or res.data[0]["receiver_id"] != current_user["id"]:
+    if not res.data or res.data[0]["receiver_id"] != current_user["user_id"]:
         raise HTTPException(status_code=403, detail="You are not authorized to confirm this file")
 
     update_res = supabase.table("secure_files").update({"status": "confirmed"}).eq("id", file_id).execute()
     if not update_res.data:
         raise HTTPException(status_code=404, detail="File not found or update failed")
     
-    log_audit(current_user["id"], "confirm_file_receipt", {"file_id": file_id}, request)
+    log_audit(current_user["user_id"], "confirm_file_receipt", {"file_id": file_id}, request)
     return {"message": "Receipt confirmed", "file": update_res.data[0]}
 
 @router.post("/{file_id}/decrypt")
@@ -108,7 +167,7 @@ async def get_file_for_decryption(file_id: str, req: FileDecryptRequest, request
         raise HTTPException(status_code=404, detail="File not found")
         
     file_record = res.data[0]
-    if file_record["receiver_id"] != current_user["id"]:
+    if file_record["receiver_id"] != current_user["user_id"]:
         raise HTTPException(status_code=403, detail="Not authorized to decrypt this file")
 
     print(f"DEBUG: Received private key length: {len(req.receiver_private_key_b64)}")
@@ -138,7 +197,7 @@ async def get_file_for_decryption(file_id: str, req: FileDecryptRequest, request
         print(f"DEBUG: PQC Decryption ERROR: {e}")
         raise HTTPException(status_code=500, detail=f"PQC Decryption failed: {str(e)}")
 
-    log_audit(current_user["id"], "decrypt_file", {"file_id": file_id}, request)
+    log_audit(current_user["user_id"], "decrypt_file", {"file_id": file_id}, request)
     
     # Ensure result is clean base64
     b64_result = base64.b64encode(decrypted_bytes).decode('utf-8')
@@ -150,5 +209,5 @@ async def get_file_for_decryption(file_id: str, req: FileDecryptRequest, request
 @router.get("/received")
 async def get_received_files(current_user: dict = Depends(get_current_user)):
     """Get all files received by the logged-in user."""
-    result = supabase.table("secure_files").select("*").eq("receiver_id", current_user["id"]).execute()
+    result = supabase.table("secure_files").select("*").eq("receiver_id", current_user["user_id"]).execute()
     return result.data
