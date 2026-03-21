@@ -90,50 +90,63 @@ async def login_user(user: UserLogin):
 
 @router.post("/mfa/verify")
 async def verify_mfa(mfa: MfaVerify):
-    """Verify Email OTP and return JWT token."""
-    print(f"DEBUG: Received verification request for: {mfa.email}, {mfa.otp_code}")
+    print(f"Verifying OTP for: {mfa.email}")
+    print(f"OTP received: {mfa.otp_code}")
     
-    # 1. Find user by email
-    user_res = supabase.table("users").select("id", "email", "role").eq("email", mfa.email).execute()
-    if not user_res.data:
-        print(f"DEBUG: User {mfa.email} not found")
-        raise HTTPException(status_code=404, detail="User not found")
-    db_user = user_res.data[0]
+    user = supabase.table("users")\
+        .select("*")\
+        .eq("email", mfa.email.lower())\
+        .execute()
     
-    # 2. Find latest OTP session for this user
-    session_res = supabase.table("sessions").select("*").eq("user_id", db_user["id"]).eq("otp_code", mfa.otp_code).execute()
+    if not user.data:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found"
+        )
     
-    if not session_res.data:
-        print(f"DEBUG: No valid session/OTP found for {mfa.email}")
-        raise HTTPException(status_code=401, detail="Invalid OTP code")
-        
-    session = session_res.data[0]
+    user = user.data[0]
     
-    # 3. Verify expiry
-    expires_at = datetime.fromisoformat(session["expires_at"].replace('Z', '+00:00'))
-    if expires_at.tzinfo is None: expires_at = expires_at.replace(tzinfo=timezone.utc)
+    session = supabase.table("sessions")\
+        .select("*")\
+        .eq("user_id", user["id"])\
+        .order("expires_at", desc=True)\
+        .limit(1)\
+        .execute()
     
-    if datetime.now(timezone.utc) > expires_at:
-        print(f"DEBUG: OTP for {mfa.email} has expired")
-        supabase.table("sessions").delete().eq("id", session["id"]).execute()
-        raise HTTPException(status_code=401, detail="OTP expired")
-        
-    print(f"DEBUG: Verification successful for {mfa.email}")
-    # Success: Delete OTP after use
-    supabase.table("sessions").delete().eq("id", session["id"]).execute()
+    if not session.data:
+        raise HTTPException(
+            status_code=404,
+            detail="OTP not found"
+        )
     
-    # Generate JWT
-    access_token_expires = timedelta(minutes=60*24)
-    access_token = create_access_token(
-        data={"sub": db_user["email"], "id": str(db_user["id"]), "role": db_user["role"]},
-        expires_delta=access_token_expires
+    session = session.data[0]
+    print(f"Stored OTP: {session['otp_code']}")
+    print(f"Received OTP: {mfa.otp_code}")
+    
+    if str(session["otp_code"]) != str(mfa.otp_code):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid OTP"
+        )
+    
+    token = create_access_token(
+        data={
+            "sub": str(user["id"]),
+            "role": user["role"],
+            "email": user["email"]
+        }
     )
     
+    supabase.table("sessions")\
+        .delete()\
+        .eq("user_id", user["id"])\
+        .execute()
+    
     return {
-        "access_token": access_token, 
-        "token_type": "bearer", 
-        "user_id": db_user["id"], 
-        "role": db_user["role"]
+        "access_token": token,
+        "token_type": "bearer",
+        "role": user["role"],
+        "user_id": str(user["id"])
     }
 
 @router.post("/update_kyber_keys")
