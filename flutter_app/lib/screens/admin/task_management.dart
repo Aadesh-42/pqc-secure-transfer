@@ -96,7 +96,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
                 TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Description')),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: priority,
+                  initialValue: priority,
                   items: const [
                     DropdownMenuItem(value: 'low', child: Text('Low Priority')),
                     DropdownMenuItem(value: 'medium', child: Text('Medium Priority')),
@@ -107,7 +107,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: assignedTo,
+                  initialValue: assignedTo,
                   hint: const Text('Select Employee'),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Unassigned')),
