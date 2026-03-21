@@ -14,9 +14,16 @@ async def get_tasks():
 @router.post("/create", response_model=TaskResponse)
 async def create_task(task: TaskCreate):
     """Create a new task."""
-    result = supabase.table("tasks").insert(task.model_dump(exclude_unset=True)).execute()
+    task_data = task.model_dump(exclude_unset=True)
+    print(f"DEBUG: Creating task with data: {task_data}")
+    
+    result = supabase.table("tasks").insert(task_data).execute()
+    
     if not result.data:
+        print(f"DEBUG: Failed to create task in Supabase")
         raise HTTPException(status_code=500, detail="Failed to create task")
+        
+    print(f"DEBUG: Task created successfully: {result.data[0]}")
     return result.data[0]
 
 @router.patch("/{task_id}/status", response_model=TaskResponse)
