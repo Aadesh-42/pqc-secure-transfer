@@ -2,6 +2,18 @@ import os
 import base64
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+def safe_b64decode(data: str) -> bytes:
+    """Safely decode base64 string, handling padding issues."""
+    if not isinstance(data, str):
+        return data # Already bytes?
+    # Remove any whitespace
+    data = data.strip()
+    # Add padding if needed
+    padding = 4 - (len(data) % 4)
+    if padding != 4:
+        data += "=" * padding
+    return base64.b64decode(data)
+
 # Try to import oqs, fallback to mock if not available
 try:
     # import oqs
@@ -59,7 +71,7 @@ def encrypt_file(file_bytes: bytes, receiver_public_key_b64: str) -> tuple[str, 
         return base64.b64encode(encrypted_payload).decode('utf-8'), base64.b64encode(mock_ciphertext).decode('utf-8')
 
     print(f"DEBUG: Using REAL Kyber-768 encryption. Key prefix: {receiver_public_key_b64[:20]}...")
-    receiver_public_key = base64.b64decode(receiver_public_key_b64)
+    receiver_public_key = safe_b64decode(receiver_public_key_b64)
     
     with oqs.KeyEncapsulation('Kyber768') as sender:
         kyber_ciphertext, shared_secret = sender.encap_secret(receiver_public_key)
@@ -80,8 +92,8 @@ def sign_file(encrypted_payload_b64: str, admin_private_key_b64: str) -> str:
         # Mock signature
         return base64.b64encode(os.urandom(3300)).decode('utf-8')
 
-    admin_private_key = base64.b64decode(admin_private_key_b64)
-    encrypted_payload = base64.b64decode(encrypted_payload_b64)
+    admin_private_key = safe_b64decode(admin_private_key_b64)
+    encrypted_payload = safe_b64decode(encrypted_payload_b64)
     
     with oqs.Signature('Dilithium3') as signer:
         signer.secret_key = admin_private_key
@@ -98,9 +110,9 @@ def verify_signature(encrypted_payload_b64: str, signature_b64: str, admin_publi
         return True # Always valid in mock mode
 
     try:
-        admin_public_key = base64.b64decode(admin_public_key_b64)
-        encrypted_payload = base64.b64decode(encrypted_payload_b64)
-        signature = base64.b64decode(signature_b64)
+        admin_public_key = safe_b64decode(admin_public_key_b64)
+        encrypted_payload = safe_b64decode(encrypted_payload_b64)
+        signature = safe_b64decode(signature_b64)
         
         with oqs.Signature('Dilithium3') as verifier:
             return verifier.verify(encrypted_payload, signature, admin_public_key)
@@ -118,15 +130,15 @@ def decrypt_file(encrypted_payload_b64: str, kyber_ciphertext_b64: str, receiver
     if not OQS_AVAILABLE:
         # Mock decryption
         mock_secret = b"this_is_a_mock_secret_32_bytes!!"
-        encrypted_payload = base64.b64decode(encrypted_payload_b64)
+        encrypted_payload = safe_b64decode(encrypted_payload_b64)
         nonce = encrypted_payload[:12]
         encrypted_data = encrypted_payload[12:]
         aesgcm = AESGCM(mock_secret)
         return aesgcm.decrypt(nonce, encrypted_data, None)
 
-    receiver_private_key = base64.b64decode(receiver_private_key_b64)
-    kyber_ciphertext = base64.b64decode(kyber_ciphertext_b64)
-    encrypted_payload = base64.b64decode(encrypted_payload_b64)
+    receiver_private_key = safe_b64decode(receiver_private_key_b64)
+    kyber_ciphertext = safe_b64decode(kyber_ciphertext_b64)
+    encrypted_payload = safe_b64decode(encrypted_payload_b64)
     
     with oqs.KeyEncapsulation('Kyber768') as client:
         client.secret_key = receiver_private_key
