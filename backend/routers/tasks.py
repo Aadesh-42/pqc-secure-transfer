@@ -14,17 +14,29 @@ async def get_tasks():
 @router.post("/create", response_model=TaskResponse)
 async def create_task(task: TaskCreate):
     """Create a new task."""
-    task_data = task.model_dump(exclude_unset=True)
-    print(f"DEBUG: Creating task with data: {task_data}")
-    
-    result = supabase.table("tasks").insert(task_data).execute()
-    
-    if not result.data:
-        print(f"DEBUG: Failed to create task in Supabase")
-        raise HTTPException(status_code=500, detail="Failed to create task")
+    try:
+        task_data = task.model_dump(exclude_unset=True)
+        print(f"DEBUG: STARTING task creation with data: {task_data}")
         
-    print(f"DEBUG: Task created successfully: {result.data[0]}")
-    return result.data[0]
+        # Ensure UUID conversion if possible
+        if task_data.get("assigned_to"):
+            from uuid import UUID
+            try:
+                task_data["assigned_to"] = str(UUID(task_data["assigned_to"]))
+            except ValueError:
+                print(f"DEBUG: assigned_to is not a valid UUID string: {task_data['assigned_to']}")
+
+        result = supabase.table("tasks").insert(task_data).execute()
+        
+        if not result.data:
+            print(f"DEBUG: Supabase returned NO DATA for insert result")
+            raise HTTPException(status_code=500, detail="Failed to create task in DB")
+            
+        print(f"DEBUG: Task created successfully! ID: {result.data[0]['id']}")
+        return result.data[0]
+    except Exception as e:
+        print(f"DEBUG: ERROR in create_task: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.patch("/{task_id}/status", response_model=TaskResponse)
 async def update_task_status(task_id: str, task_update: TaskUpdate):
