@@ -83,6 +83,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setStateDialog) => AlertDialog(
           title: const Text('Create New Task'),
@@ -106,7 +107,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   value: assignedTo,
-                  hint: const Text('Select Assignee'),
+                  hint: const Text('Select Employee'),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Unassigned')),
                     ..._employees.map((e) => DropdownMenuItem(
@@ -121,27 +122,45 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx), 
+              child: const Text('Cancel')
+            ),
             ElevatedButton(
               onPressed: () async {
+                if (titleCtrl.text.isEmpty) return;
+                
                 final api = Provider.of<ApiService>(context, listen: false);
-                Navigator.pop(ctx);
                 setState(() => _isLoading = true);
+                Navigator.pop(ctx); // Close dialog first to show loading on main screen
+                
                 try {
                   final res = await api.createTask({
                     'title': titleCtrl.text,
                     'description': descCtrl.text,
                     'priority': priority,
                     'assigned_to': assignedTo,
+                    'status': 'pending', // Added status as requested
                   });
+                  
                   if (res.statusCode == 201 || res.statusCode == 200) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Task created successfully!'))
+                      );
+                    }
                     await _loadTasks();
                   } else {
-                     setState(() => _isLoading = false);
+                    setState(() => _isLoading = false);
                   }
                 } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to create task: $e')));
-                  setState(() => _isLoading = false);
+                  debugPrint('Failed to create task: $e');
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to create task: $e'))
+                    );
+                    setState(() => _isLoading = false);
+                  }
                 }
               },
               child: const Text('Create'),
