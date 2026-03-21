@@ -1,9 +1,51 @@
 from fastapi import APIRouter, HTTPException, Depends
-from routers.auth import get_current_user
+from fastapi.security import OAuth2PasswordBearer
+from jose import jwt, JWTError
+from typing import Optional
+import os
 from database.connection import supabase
 from models.task import TaskCreate
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
+
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/auth/login"
+)
+
+SECRET_KEY = os.getenv(
+    "JWT_SECRET",
+    "Aadesh2026PQCSecureApp$Key#32XvBh"
+)
+
+ALGORITHM = "HS256"
+
+def get_current_user(
+    token: str = Depends(oauth2_scheme)
+):
+    try:
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+        user_id = payload.get("sub")
+        role = payload.get("role")
+        email = payload.get("email")
+        if user_id is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token"
+            )
+        return {
+            "user_id": user_id,
+            "role": role,
+            "email": email
+        }
+    except JWTError:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token"
+        )
 
 @router.post("/create")
 async def create_task(task: TaskCreate, current_user: dict = Depends(get_current_user)):
@@ -31,7 +73,7 @@ async def get_tasks(current_user: dict = Depends(get_current_user)):
     if current_user["role"] == "admin":
         result = supabase.table("tasks").select("*").execute()
     else:
-        result = supabase.table("tasks").select("*").eq("assigned_to", current_user["id"]).execute()
+        result = supabase.table("tasks").select("*").eq("assigned_to", current_user["user_id"]).execute()
     return result.data
 
 @router.patch("/{task_id}/status")
