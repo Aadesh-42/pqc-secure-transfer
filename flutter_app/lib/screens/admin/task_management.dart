@@ -128,36 +128,64 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                if (titleCtrl.text.isEmpty) return;
+                print("DEBUG [TaskDialog]: Create button clicked");
+                if (titleCtrl.text.isEmpty) {
+                  print("DEBUG [TaskDialog]: Title is empty, aborting");
+                  return;
+                }
                 
                 final api = Provider.of<ApiService>(context, listen: false);
                 setState(() => _isLoading = true);
-                Navigator.pop(ctx); // Close dialog first to show loading on main screen
+                print("DEBUG [TaskDialog]: Closing dialog and starting loading");
+                Navigator.pop(ctx); 
                 
                 try {
-                  final res = await api.createTask({
+                  final taskData = {
                     'title': titleCtrl.text,
                     'description': descCtrl.text,
                     'priority': priority,
-                    'assigned_to': assignedTo,
-                    'status': 'pending', // Added status as requested
-                  });
+                    'assigned_to': assignedTo, // Will be null if Unassigned
+                    'status': 'pending',
+                  };
+                  print("DEBUG [TaskDialog]: Sending request to API: $taskData");
+                  
+                  final res = await api.createTask(taskData);
+                  print("DEBUG [TaskDialog]: API Response Code: ${res.statusCode}");
+                  print("DEBUG [TaskDialog]: API Response Body: ${res.data}");
                   
                   if (res.statusCode == 201 || res.statusCode == 200) {
+                    print("DEBUG [TaskDialog]: Creation SUCCESS");
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Task created successfully!'))
                       );
                     }
+                    print("DEBUG [TaskDialog]: Refreshing task list");
                     await _loadTasks();
                   } else {
+                    print("DEBUG [TaskDialog]: Creation FAILED with code ${res.statusCode}");
+                    setState(() => _isLoading = false);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Server Error: ${res.statusCode} - ${res.data}'))
+                      );
+                    }
+                  }
+                } on DioException catch (e) {
+                  print("DEBUG [TaskDialog]: DIO ERROR: ${e.response?.statusCode}");
+                  print("DEBUG [TaskDialog]: ERROR BODY: ${e.response?.data}");
+                  final msg = e.response?.data['detail'] ?? e.message;
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('API Error: $msg'))
+                    );
                     setState(() => _isLoading = false);
                   }
                 } catch (e) {
-                  debugPrint('Failed to create task: $e');
+                  print("DEBUG [TaskDialog]: GENERAL ERROR: $e");
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to create task: $e'))
+                      SnackBar(content: Text('Unexpected Error: $e'))
                     );
                     setState(() => _isLoading = false);
                   }
