@@ -85,7 +85,10 @@ class ApiService {
   Future<Response> createTask(Map<String, dynamic> data) => _dio.post('/tasks/create', data: data);
   Future<Response> updateTask(String id, Map<String, dynamic> data) => _dio.patch('/tasks/$id/status', data: data);
 
-  // Files Endpoints
+  // PQC/Files Endpoints
+  Future<Response> getUserPublicKey(String userId) => _dio.get('/auth/$userId/public_key');
+  Future<Response> encryptFile(Map<String, dynamic> data) => _dio.post('/files/encrypt', data: data);
+  Future<Response> signFile(Map<String, dynamic> data) => _dio.post('/files/sign', data: data);
   Future<Response> sendFile(Map<String, dynamic> data) => _dio.post('/files/send', data: data);
   Future<Response> getReceivedFiles(String userId) => _dio.get('/files/received', queryParameters: {'receiver_id': userId});
   Future<Response> confirmFile(String id, String userId) => _dio.post('/files/$id/confirm', queryParameters: {'receiver_id': userId});
