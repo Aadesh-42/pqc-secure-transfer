@@ -6,9 +6,9 @@ from uuid import UUID
 class TaskBase(BaseModel):
     title: str
     description: Optional[str] = None
-    assigned_to: Optional[UUID] = None
+    assigned_to: Optional[str] = None
     priority: str = "medium"
-    due_date: Optional[datetime] = None
+    due_date: Optional[str] = None
 
 class TaskCreate(TaskBase):
     pass
