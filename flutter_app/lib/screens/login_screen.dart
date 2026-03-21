@@ -92,9 +92,15 @@ class _LoginScreenState extends State<LoginScreen> {
       
       final role = response.data["role"];
       final token = response.data["access_token"];
+      final userId = response.data["user_id"];
+      final email = _emailCtrl.text.trim().toLowerCase();
       
-      await storage.saveToken(token); // Using AuthService wrapper
-      // Project uses auth_service for storage
+      await storage.saveToken(token); 
+      await storage.saveUserId(userId);
+      await storage.saveRole(role);
+      await storage.saveEmail(email);
+      
+      print("DEBUG [Login]: Saved User $userId with role $role");
       
       if (mounted) {
         if (role == "admin") {
