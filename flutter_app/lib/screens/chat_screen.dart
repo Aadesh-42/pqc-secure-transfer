@@ -172,20 +172,56 @@ class _ChatScreenState extends State<ChatScreen> {
                     itemBuilder: (ctx, i) {
                       final msg = _messages[i];
                       final isMe = msg.senderId == _currentUserId;
+                      
+                      print("Message: ${msg.content}");
+                      print("Sender: ${msg.senderId}");
+                      print("My ID: $_currentUserId");
+                      print("isMe: $isMe");
+
                       return Align(
                         alignment: isMe
                           ? Alignment.centerRight
                           : Alignment.centerLeft,
                         child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          margin: const EdgeInsets.symmetric(
+                            vertical: 4, horizontal: 8),
                           padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isMe ? Colors.blue : Colors.grey[800],
-                            borderRadius: BorderRadius.circular(12),
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.of(context).size.width * 0.7
                           ),
-                          child: Text(
-                            msg.content,
-                            style: const TextStyle(color: Colors.white)
+                          decoration: BoxDecoration(
+                            color: isMe ? Colors.blue : Colors.grey[700],
+                            borderRadius: BorderRadius.only(
+                              topLeft: const Radius.circular(12),
+                              topRight: const Radius.circular(12),
+                              bottomLeft: isMe 
+                                ? const Radius.circular(12) 
+                                : const Radius.circular(0),
+                              bottomRight: isMe 
+                                ? const Radius.circular(0) 
+                                : const Radius.circular(12),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: isMe
+                              ? CrossAxisAlignment.end
+                              : CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isMe ? "You" : "Other",
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.white70
+                                )
+                              ),
+                              Text(
+                                msg.content,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16
+                                )
+                              ),
+                            ],
                           ),
                         ),
                       );
