@@ -245,7 +245,7 @@ async def get_admins(current_user: dict = Depends(get_current_user)):
     print(f"Admins found: {result.data}")
     return result.data
 
-# ─── Registration with OTP verification ───────────────────────────────────────
+# --- Registration Flow ---
 
 class RegisterRequest(BaseModel):
     first_name: str
@@ -255,94 +255,130 @@ class RegisterRequest(BaseModel):
     role: str = "employee"
 
 @router.post("/register-request")
-async def register_request(data: RegisterRequest, request: Request):
-    """Step 1: validate email uniqueness, send OTP, store pending registration."""
+async def register_request(
+    data: RegisterRequest,
+    request: Request
+):
     print(f"Register request: {data.email}")
-
-    existing = supabase.table("users").select("id").eq("email", data.email.lower()).execute()
+    
+    # Check if user already exists
+    existing = supabase.table("users")\
+        .select("id")\
+        .eq("email", data.email.lower())\
+        .execute()
+    
     if existing.data:
-        raise HTTPException(status_code=400, detail="Email already registered")
-
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
+    
+    # Generate 6-digit OTP
     otp = str(random.randint(100000, 999999))
+    
+    # Send OTP email
     from services.email_service import send_otp_email
-    email_sent = send_otp_email(data.email, otp)
-    if not email_sent:
-        raise HTTPException(status_code=500, detail="Failed to send OTP email")
-
-    # Store pending registration in sessions table using ip_address as email key
-    # and device_info to hold registration payload
-    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()
-    device_info = f"{data.first_name} {data.last_name}|{data.password}|{data.role}"
-
+    send_otp_email(data.email, otp)
+    
+    # Store registration info temporarily in sessions table
+    # We use a dummy UUID and store data in device_info
     supabase.table("sessions").insert({
         "user_id": "00000000-0000-0000-0000-000000000000",
         "otp_code": otp,
         "ip_address": data.email.lower(),
-        "expires_at": expires_at,
-        "device_info": device_info,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
+        "device_info": f"{data.first_name} {data.last_name}|{data.password}|{data.role}"
     }).execute()
-
+    
     await log_action(
         user_id="00000000-0000-0000-0000-000000000000",
         action="register_request",
         metadata={"email": data.email}
     )
-
-    return {"message": "OTP sent to your email", "email": data.email}
-
+    
+    return {
+        "message": "OTP sent to your email",
+        "email": data.email
+    }
 
 class VerifyRegistration(BaseModel):
     email: str
     otp_code: str
 
 @router.post("/verify-registration")
-async def verify_registration(data: VerifyRegistration):
-    """Step 2: verify OTP and create the user account."""
+async def verify_registration(
+    data: VerifyRegistration
+):
     print(f"Verifying registration for {data.email}")
-
+    
+    # Find temporary registration session
     session = supabase.table("sessions")\
         .select("*")\
         .eq("ip_address", data.email.lower())\
         .order("expires_at", desc=True)\
         .limit(1)\
         .execute()
-
+    
     if not session.data:
-        raise HTTPException(status_code=404, detail="OTP not found. Please request again.")
-
+        raise HTTPException(
+            status_code=404,
+            detail="OTP not found. Please request again."
+        )
+    
     s = session.data[0]
-
+    
+    # Check OTP
     if str(s["otp_code"]) != str(data.otp_code):
-        raise HTTPException(status_code=400, detail="Invalid OTP")
-
-    # Parse stored registration payload
-    device_info = s.get("device_info", "||employee")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid OTP"
+        )
+    
+    # Extract data from device_info
+    device_info = s["device_info"]
     parts = device_info.split("|")
-    full_name = parts[0] if len(parts) > 0 else ""
-    password   = parts[1] if len(parts) > 1 else ""
-    role       = parts[2].strip() if len(parts) > 2 else "employee"
-
+    full_name = parts[0]
+    password = parts[1]
+    role = parts[2] if len(parts) > 2 else "employee"
+    
+    # Hash password using auth_service helper for consistency
     from services.auth_service import get_password_hash
     password_hash = get_password_hash(password)
-
-    result = supabase.table("users").insert({
+    
+    # Create final user record
+    new_user_data = {
         "email": data.email.lower(),
         "password_hash": password_hash,
-        "role": role,
-    }).execute()
+        "role": role.strip()
+    }
+    
+    # Add PQC keys if available
+    try:
+        from services.pqc_service import generate_kyber_keypair, generate_dilithium_keypair
+        kyber_pub, _ = generate_kyber_keypair()
+        dilithium_pub, _ = generate_dilithium_keypair()
+        new_user_data["kyber_public_key"] = kyber_pub
+        new_user_data["dilithium_public_key"] = dilithium_pub
+    except ImportError:
+        pass
 
+    result = supabase.table("users").insert(new_user_data).execute()
+    
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create account")
-
-    # Clean up the pending session
+        
+    # Clean up temp session
     supabase.table("sessions").delete().eq("ip_address", data.email.lower()).execute()
-
+    
     new_user = result.data[0]
-
+    
     await log_action(
         user_id=new_user["id"],
         action="account_created",
         metadata={"email": data.email}
     )
-
-    return {"message": "Account created successfully!", "user_id": new_user["id"]}
+    
+    return {
+        "message": "Account created successfully!",
+        "user_id": new_user["id"]
+    }
