@@ -48,6 +48,25 @@ def get_current_user(
             detail="Invalid token"
         )
 
+async def log_action(
+    user_id: str,
+    action: str,
+    metadata: dict = {},
+    ip_address: str = "unknown"
+):
+    """Reusable audit logger — call from any router to record actions."""
+    try:
+        supabase.table("audit_logs").insert({
+            "user_id": user_id,
+            "action": action,
+            "metadata": metadata,
+            "ip_address": ip_address,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }).execute()
+        print(f"Logged: {action} by {user_id}")
+    except Exception as e:
+        print(f"Audit log error: {e}")
+
 @router.get("/logs")
 async def get_audit_logs(current_user: dict = Depends(get_current_user)):
     """Retrieve all audit logs. (Admin only)"""
