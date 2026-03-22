@@ -51,8 +51,25 @@ def get_current_user(
 @router.get("/logs")
 async def get_audit_logs(current_user: dict = Depends(get_current_user)):
     """Retrieve all audit logs. (Admin only)"""
+    print(f"Getting audit logs for {current_user['role']}")
     if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Unauthorized")
-        
-    result = supabase.table("audit_logs").select("*").order("timestamp", desc=True).execute()
-    return result.data
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    try:
+        result = supabase.table("audit_logs")\
+            .select("*, users(email)")\
+            .order("timestamp", desc=True)\
+            .limit(50)\
+            .execute()
+        print(f"Logs found: {len(result.data)}")
+        return result.data
+    except Exception as e:
+        print(f"Error fetching audit logs (join failed): {e}")
+        # Fallback: without join in case FK not configured in Supabase
+        result = supabase.table("audit_logs")\
+            .select("*")\
+            .order("timestamp", desc=True)\
+            .limit(50)\
+            .execute()
+        print(f"Logs (no join) found: {len(result.data)}")
+        return result.data
