@@ -85,22 +85,22 @@ async def get_messages(
     current_user: dict = Depends(get_current_user)
 ):
     my_id = current_user["user_id"]
-    print(f"DEBUG: Getting messages between {my_id} and {other_user_id}")
+    print(f"MY ID: {my_id}")
+    print(f"OTHER ID: {other_user_id}")
+    
     try:
-        # Fetch all messages involving the current user (either as sender or receiver)
-        # Then filter manually to ensure it's specifically for this conversation
-        result = supabase.table("messages")\
-            .select("*")\
-            .execute()
+        result = supabase.table("messages").select("*").execute()
         
-        all_messages = result.data
+        all_msgs = result.data
+        print(f"Total messages in DB: {len(all_msgs)}")
+        
         filtered = [
-            m for m in all_messages
+            m for m in all_msgs
             if (m["sender_id"] == my_id and m["receiver_id"] == other_user_id)
             or (m["sender_id"] == other_user_id and m["receiver_id"] == my_id)
         ]
         
-        print(f"DEBUG: Found {len(filtered)} filtered messages")
+        print(f"Filtered (conversation-specific): {len(filtered)}")
         # Sort by created_at ascending
         filtered.sort(key=lambda x: x["created_at"])
         return filtered
