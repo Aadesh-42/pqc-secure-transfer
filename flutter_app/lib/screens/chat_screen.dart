@@ -69,9 +69,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadMessages({bool hideLoading = false}) async {
-    print("Getting messages for: $_currentUserId");
-    print("Receiver: $_receiverId");
-    if (_receiverId == null) return;
+    if (_currentUserId == null || _receiverId == null) return;
+    
+    print("LOADING FOR: $_currentUserId");
+    print("OTHER USER: $_receiverId");
 
     if (!hideLoading) {
       setState(() => _isLoading = true);
@@ -104,6 +105,9 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_msgCtrl.text.trim().isEmpty || 
         _currentUserId == null || 
         _receiverId == null) return;
+
+    print("SENDING TO: $_receiverId");
+    print("MY ID: $_currentUserId");
     
     final text = _msgCtrl.text.trim();
     _msgCtrl.clear();
