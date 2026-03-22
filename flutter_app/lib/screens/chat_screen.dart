@@ -26,7 +26,10 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _initialize();
+    // Use addPostFrameCallback so ModalRoute.of(context) is available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initialize();
+    });
   }
 
   @override
@@ -37,62 +40,48 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initialize() async {
-    // Check if navigation args were passed (admin selected specific employee)
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-
     _currentUserId = await _storage.read(key: "user_id");
     _currentRole = await _storage.read(key: "role");
 
-    print("=== INIT DEBUG ===");
-    print("Role: $_currentRole");
-    print("My ID: $_currentUserId");
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
 
-    if (args != null) {
-      _receiverId = args['receiver_id'];
-      _receiverEmail = args['receiver_email'];
-      print("Using args receiver: $_receiverId ($_receiverEmail)");
-      if (mounted) setState(() {});
-      await _loadMessages();
-      _pollingTimer = Timer.periodic(
-        const Duration(seconds: 5),
-        (_) => _loadMessages(hideLoading: true)
-      );
-      return;
-    }
+    print("INIT - Role: $_currentRole");
+    print("INIT - My ID: $_currentUserId");
+    print("INIT - Args: $args");
 
-    final api = Provider.of<ApiService>(context, listen: false);
-    
-    try {
-      if (_currentRole == "admin") {
-        final res = await api.getEmployees();
-        print("ALL EMPLOYEES: ${res.data}");
-        if ((res.data as List).isNotEmpty) {
-          _receiverId = res.data[0]["id"];
-          print("Using employee: $_receiverId");
-        }
-      } else {
-        final res = await api.getAdmins();
-        print("ALL ADMINS: ${res.data}");
-        if ((res.data as List).isNotEmpty) {
-          _receiverId = res.data[0]["id"];
-          print("Using admin: $_receiverId");
-        }
-      }
-    } catch (e) {
-      print("Error getting receiver: $e");
-    }
-
-    print("Got receiver: $_receiverId");
-    
-    if (_receiverId != null) {
-      await _loadMessages();
-      _pollingTimer = Timer.periodic(
-        const Duration(seconds: 5),
-        (_) => _loadMessages(hideLoading: true)
-      );
+    if (args != null && args['receiver_id'] != null) {
+      setState(() {
+        _receiverId = args['receiver_id'];
+        _receiverEmail = args['receiver_email'];
+      });
+      print("INIT - Receiver from args: $_receiverId");
     } else {
-      print("ERROR: receiver is null!");
+      final api = Provider.of<ApiService>(context, listen: false);
+      try {
+        if (_currentRole == "admin") {
+          final res = await api.getEmployees();
+          print("ALL EMPLOYEES: ${res.data}");
+          if ((res.data as List).isNotEmpty) {
+            setState(() => _receiverId = res.data[0]["id"]);
+          }
+        } else {
+          final res = await api.getAdmins();
+          print("ALL ADMINS: ${res.data}");
+          if ((res.data as List).isNotEmpty) {
+            setState(() => _receiverId = res.data[0]["id"]);
+          }
+        }
+      } catch (e) {
+        print("Error getting receiver: $e");
+      }
     }
+
+    print("FINAL receiver: $_receiverId");
+    await _loadMessages();
+    _pollingTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _loadMessages(hideLoading: true)
+    );
   }
 
   Future<void> _loadMessages({bool hideLoading = false}) async {
@@ -137,17 +126,33 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _sendMessage() async {
-    if (_msgCtrl.text.trim().isEmpty || 
-        _currentUserId == null || 
-        _receiverId == null) return;
+    print("=== SEND DEBUG ===");
+    print("Message: ${_msgCtrl.text}");
+    print("My ID: $_currentUserId");
+    print("Receiver ID: $_receiverId");
+
+    if (_msgCtrl.text.trim().isEmpty) {
+      print("ERROR: Empty message!");
+      return;
+    }
+    if (_receiverId == null) {
+      print("ERROR: No receiver!");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Error: No receiver selected!")));
+      }
+      return;
+    }
+    if (_currentUserId == null) {
+      print("ERROR: No sender!");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Error: Not logged in!")));
+      }
+      return;
+    }
 
     final text = _msgCtrl.text.trim();
-    
-    print("=== SEND DEBUG ===");
-    print("MY ID: $_currentUserId");
-    print("RECEIVER ID: $_receiverId");
-    print("Content: $text");
-    
     _msgCtrl.clear();
     
     try {
