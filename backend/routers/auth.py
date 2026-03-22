@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from pydantic import BaseModel
@@ -14,6 +14,7 @@ from services.auth_service import (
 )
 from database.connection import supabase
 from services.email_service import send_otp_email
+from routers.audit import log_action
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -162,10 +163,14 @@ async def verify_mfa(mfa: MfaVerify):
         }
     )
     
-    supabase.table("sessions")\
-        .delete()\
-        .eq("user_id", user["id"])\
-        .execute()
+    supabase.table("sessions").delete().eq("user_id", user["id"]).execute()
+    
+    # Log successful login
+    await log_action(
+        user_id=str(user["id"]),
+        action="user_login",
+        metadata={"email": user["email"]},
+    )
     
     return {
         "access_token": token,
