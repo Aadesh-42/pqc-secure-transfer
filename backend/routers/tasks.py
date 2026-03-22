@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
-from typing import Optional
+from pydantic import BaseModel
+from typing import Optional, List
+from datetime import datetime, timezone
 import os
 from database.connection import supabase
 from models.task import TaskCreate
