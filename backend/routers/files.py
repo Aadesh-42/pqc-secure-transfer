@@ -202,10 +202,13 @@ async def get_file_for_decryption(file_id: str, req: FileDecryptRequest, request
     log_audit(current_user["user_id"], "decrypt_file", {"file_id": file_id}, request)
     
     # Ensure result is clean base64
-    b64_result = base64.b64encode(decrypted_bytes).decode('utf-8')
+    encoded = base64.b64encode(decrypted_bytes).decode('utf-8')
+    
     return {
-        "message": "File decrypted successfully", 
-        "file_bytes_b64": b64_result
+        "status": "success",
+        "file_data": encoded,
+        "file_type": "image/jpeg",  # Defaulting as hinted by user, or add logic
+        "file_name": f"decrypted_{file_id}"
     }
 
 @router.get("/received")
