@@ -1,6 +1,5 @@
 FROM python:3.11-slim
 
-# Install build dependencies
 RUN apt-get update && apt-get install -y \
     cmake \
     ninja-build \
@@ -10,19 +9,18 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Build liboqs C library first
 RUN git clone --depth 1 \
     https://github.com/open-quantum-safe/liboqs.git \
     && cmake -S liboqs -B liboqs/build \
     -DOQS_DIST_BUILD=ON \
     -DBUILD_SHARED_LIBS=ON \
     -DCMAKE_INSTALL_PREFIX=/usr/local \
-    && cmake --build liboqs/build --parallel 4 \
+    && cmake --build liboqs/build \
+    --parallel 4 \
     && cmake --install liboqs/build \
     && ldconfig \
     && rm -rf liboqs
 
-# Now install liboqs python wrapper
 RUN git clone --depth 1 \
     https://github.com/open-quantum-safe/liboqs-python.git \
     && cd liboqs-python \
@@ -32,13 +30,11 @@ RUN git clone --depth 1 \
 
 WORKDIR /app
 COPY requirements.txt .
-
-# Remove liboqs-python from requirements.txt
-# since we installed it manually above
 RUN pip install --no-cache-dir -r requirements.txt
-
 COPY . .
 
-CMD ["uvicorn", "main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000"]
+EXPOSE 10000
+
+CMD uvicorn main:app \
+    --host 0.0.0.0 \
+    --port ${PORT:-10000}
