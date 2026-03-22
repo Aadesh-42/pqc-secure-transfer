@@ -16,6 +16,7 @@ import 'screens/employee/employee_dashboard.dart';
 import 'screens/employee/receive_file_screen.dart';
 import 'screens/employee/task_checklist.dart';
 import 'screens/chat_screen.dart';
+import 'screens/admin/employee_list_screen.dart';
 
 void main() {
   runApp(
@@ -63,6 +64,7 @@ class PQCSecureApp extends StatelessWidget {
         '/receive_file': (context) => const ReceiveFileScreen(),
         '/task_checklist': (context) => const TaskChecklistScreen(),
         '/chat': (context) => const ChatScreen(),
+        '/employee_list': (context) => const EmployeeListScreen(),
       },
     );
   }
