@@ -78,14 +78,23 @@ async def get_tasks(current_user: dict = Depends(get_current_user)):
         result = supabase.table("tasks").select("*").eq("assigned_to", current_user["user_id"]).execute()
     return result.data
 
-@router.patch("/{task_id}/status")
-async def update_task_status(task_id: int, status_update: dict, current_user: dict = Depends(get_current_user)):
-    """Update task status."""
-    new_status = status_update.get("status")
-    if not new_status:
-        raise HTTPException(status_code=400, detail="Status is required")
+class TaskStatusUpdate(BaseModel):
+    status: str
 
-    result = supabase.table("tasks").update({"status": new_status}).eq("id", task_id).execute()
-    if not result.data:
+@router.patch("/{task_id}/status")
+async def update_task_status(
+    task_id: str,
+    status_update: TaskStatusUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update task status."""
+    print(f"Updating task {task_id} to {status_update.status}")
+    try:
+        result = supabase.table("tasks").update({"status": status_update.status}).eq("id", task_id).execute()
+        print(f"Updated: {result.data}")
+        if result.data:
+            return result.data[0]
         raise HTTPException(status_code=404, detail="Task not found")
-    return result.data[0]
+    except Exception as e:
+        print(f"Error updating task: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
