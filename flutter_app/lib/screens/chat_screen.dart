@@ -19,6 +19,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isLoading = false;
   String? _currentUserId;
   String? _receiverId;
+  String? _receiverEmail;
   String? _currentRole;
   Timer? _pollingTimer;
 
@@ -36,13 +37,29 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initialize() async {
+    // Check if navigation args were passed (admin selected specific employee)
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
     _currentUserId = await _storage.read(key: "user_id");
     _currentRole = await _storage.read(key: "role");
-    
+
     print("=== INIT DEBUG ===");
     print("Role: $_currentRole");
     print("My ID: $_currentUserId");
-    
+
+    if (args != null) {
+      _receiverId = args['receiver_id'];
+      _receiverEmail = args['receiver_email'];
+      print("Using args receiver: $_receiverId ($_receiverEmail)");
+      if (mounted) setState(() {});
+      await _loadMessages();
+      _pollingTimer = Timer.periodic(
+        const Duration(seconds: 5),
+        (_) => _loadMessages(hideLoading: true)
+      );
+      return;
+    }
+
     final api = Provider.of<ApiService>(context, listen: false);
     
     try {
@@ -156,9 +173,10 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _currentRole == "admin" 
-            ? "Chat with Employee" 
-            : "Chat with Admin"
+          _receiverEmail ??
+          (_currentRole == "admin"
+            ? "Chat with Employee"
+            : "Chat with Admin")
         ),
       ),
       body: Column(
