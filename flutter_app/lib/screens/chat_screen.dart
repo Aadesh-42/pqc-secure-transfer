@@ -69,12 +69,16 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadMessages({bool hideLoading = false}) async {
+    print("Getting messages for: $_currentUserId");
+    print("Receiver: $_receiverId");
+    if (_receiverId == null) return;
+
     if (!hideLoading) {
       setState(() => _isLoading = true);
     }
     try {
       final api = Provider.of<ApiService>(context, listen: false);
-      final res = await api.getMessages(_currentUserId ?? "");
+      final res = await api.getMessages(_receiverId!);
       if (mounted) {
         setState(() {
           _messages = (res.data as List)
