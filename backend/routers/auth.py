@@ -231,3 +231,9 @@ async def get_employees():
     """Get all users with the 'employee' role."""
     result = supabase.table("users").select("id", "email").eq("role", "employee").execute()
     return result.data
+
+@router.get("/admins")
+async def get_admins(current_user: dict = Depends(get_current_user)):
+    """Get all users with the 'admin' role."""
+    result = supabase.table("users").select("id, email, role").eq("role", "admin").execute()
+    return result.data
