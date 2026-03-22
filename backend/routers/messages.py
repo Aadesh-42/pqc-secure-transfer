@@ -79,6 +79,13 @@ async def send_message(
             detail=str(e)
         )
 
+@router.get("/debug/all")
+async def get_all_messages():
+    """Debug endpoint: returns ALL messages in the database without filtering."""
+    result = supabase.table("messages").select("*").order("created_at").execute()
+    print(f"ALL MESSAGES: {result.data}")
+    return result.data
+
 @router.get("/{other_user_id}")
 async def get_messages(
     other_user_id: str,
