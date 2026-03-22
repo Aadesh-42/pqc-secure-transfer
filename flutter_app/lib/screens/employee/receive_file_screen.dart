@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
@@ -18,8 +19,26 @@ class _ReceiveFileScreenState extends State<ReceiveFileScreen> {
   bool _isConfirming = false;
   bool _isRegenerating = false;
   String? _decryptedText;
+  Uint8List? _decryptedBytes;
+  String? _fileType;
   String? _activeFileId;
   String? _localKyberPrivateKey;
+
+  String _getFileTypeFromBytes(Uint8List bytes) {
+    // Basic magic number detection
+    if (bytes.length > 4) {
+      if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+        return 'image/png';
+      }
+      if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) {
+        return 'image/jpeg';
+      }
+      if (bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46) {
+        return 'application/pdf';
+      }
+    }
+    return 'text/plain';
+  }
 
   @override
   void initState() {
@@ -113,15 +132,26 @@ class _ReceiveFileScreenState extends State<ReceiveFileScreen> {
       });
       
       if (res.statusCode == 200) {
-        final b64Content = res.data['file_bytes_b64'];
-        print("DEBUG [Decrypt]: Received Base64 content length: ${b64Content?.length}");
+        final String base64Data = res.data['file_data'];
+        final String serverFileType = res.data['file_type'];
         
-        final decodedBytes = base64Decode(b64Content);
-        print("DEBUG [Decrypt]: Decoded bytes length: ${decodedBytes.length}");
+        final decodedBytes = base64Decode(base64Data);
+        final detectedType = _getFileTypeFromBytes(decodedBytes);
+        
+        // Use server hint or fallback to detection
+        final finalType = serverFileType.contains("image") ? serverFileType : detectedType;
 
         setState(() {
-          _decryptedText = utf8.decode(decodedBytes, allowMalformed: true);
+          _decryptedBytes = decodedBytes;
+          _fileType = finalType;
+          
+          if (finalType.contains("image")) {
+            _showImageDialog(decodedBytes);
+          } else {
+            _decryptedText = utf8.decode(decodedBytes, allowMalformed: true);
+          }
         });
+        
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('File decrypted successfully!')));
       }
     } catch (e) {
@@ -130,6 +160,25 @@ class _ReceiveFileScreenState extends State<ReceiveFileScreen> {
     } finally {
       setState(() => _isDecrypting = false);
     }
+  }
+
+  void _showImageDialog(Uint8List bytes) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Decrypted Image"),
+        content: Container(
+          constraints: const BoxConstraints(maxHeight: 400),
+          child: Image.memory(bytes, fit: BoxContains.contain),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Close")
+          )
+        ]
+      )
+    );
   }
 
   @override
