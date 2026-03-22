@@ -227,13 +227,15 @@ async def get_user_public_key(user_id: str):
     return {"public_key": result.data[0]["kyber_public_key"]}
 
 @router.get("/employees")
-async def get_employees():
+async def get_employees(current_user: dict = Depends(get_current_user)):
     """Get all users with the 'employee' role."""
-    result = supabase.table("users").select("id", "email").eq("role", "employee").execute()
+    result = supabase.table("users").select("id, email, role").eq("role", "employee").execute()
+    print(f"Employees found: {result.data}")
     return result.data
 
 @router.get("/admins")
 async def get_admins(current_user: dict = Depends(get_current_user)):
     """Get all users with the 'admin' role."""
     result = supabase.table("users").select("id, email, role").eq("role", "admin").execute()
+    print(f"Admins found: {result.data}")
     return result.data
