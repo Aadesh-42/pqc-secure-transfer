@@ -104,7 +104,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   _buildActionCard(context, 'Send File (Kyber)', Icons.security, '/send_file', Colors.purple),
                   _buildActionCard(context, 'Manage Tasks', Icons.assignment, '/task_management', Colors.orange),
                   _buildActionCard(context, 'Audit Logs', Icons.history, '/audit_logs', Colors.grey),
-                  _buildActionCard(context, 'Team Chat', Icons.chat, '/chat', Colors.teal),
+                  _buildActionCard(context, 'Team Chat', Icons.chat, '/employee_list', Colors.teal),
                 ],
               ),
               const SizedBox(height: 32),
@@ -162,7 +162,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         width: MediaQuery.of(context).size.width / 2 - 24,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.5),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: defaultColor.withOpacity(0.3)),
         ),
