@@ -39,47 +39,51 @@ class _ChatScreenState extends State<ChatScreen> {
     _currentUserId = await _storage.read(key: "user_id");
     _currentRole = await _storage.read(key: "role");
     
-    if (_currentRole == "admin") {
-      final api = Provider.of<ApiService>(context, listen: false);
-      try {
+    print("=== CHAT INITIALIZE ===");
+    print("Current user: $_currentUserId");
+    print("Current role: $_currentRole");
+    
+    final api = Provider.of<ApiService>(context, listen: false);
+    
+    try {
+      if (_currentRole == "admin") {
         final res = await api.getEmployees();
         if ((res.data as List).isNotEmpty) {
           _receiverId = res.data[0]["id"];
+          print("Admin receiver (employee): $_receiverId");
         }
-      } catch (e) {
-        print("Error getting employees: $e");
-      }
-    } else {
-      final api = Provider.of<ApiService>(context, listen: false);
-      try {
+      } else {
         final res = await api.getAdmins();
         if ((res.data as List).isNotEmpty) {
           _receiverId = res.data[0]["id"];
+          print("Employee receiver (admin): $_receiverId");
         }
-      } catch (e) {
-        print("Error getting admins: $e");
       }
+    } catch (e) {
+      print("Error getting receiver: $e");
     }
     
-    await _loadMessages();
-    _pollingTimer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _loadMessages(hideLoading: true)
-    );
+    if (_receiverId != null) {
+      await _loadMessages();
+      _pollingTimer = Timer.periodic(
+        const Duration(seconds: 5),
+        (_) => _loadMessages(hideLoading: true)
+      );
+    } else {
+      print("ERROR: receiver is null!");
+    }
   }
 
   Future<void> _loadMessages({bool hideLoading = false}) async {
     if (_currentUserId == null || _receiverId == null) return;
     
-    print("LOADING FOR: $_currentUserId");
-    print("OTHER USER: $_receiverId");
-
     if (!hideLoading) {
       setState(() => _isLoading = true);
     }
     try {
       final api = Provider.of<ApiService>(context, listen: false);
       final res = await api.getMessages(_receiverId!);
+      
       if (mounted) {
         setState(() {
           _messages = (res.data as List)
@@ -87,6 +91,16 @@ class _ChatScreenState extends State<ChatScreen> {
             .toList();
           _messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
         });
+
+        print("=== CHAT DEBUG ===");
+        print("My ID: $_currentUserId");
+        print("Receiver ID: $_receiverId");
+        print("Role: $_currentRole");
+        print("Calling: /messages/$_receiverId");
+        print("Messages found: ${_messages.length}");
+        for (var m in _messages) {
+          print("MSG: sender=${m.senderId} content=${m.content}");
+        }
       }
     } catch (e) {
       print("Error loading messages: $e");
@@ -106,6 +120,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _currentUserId == null || 
         _receiverId == null) return;
 
+    print("=== SEND DEBUG ===");
     print("SENDING TO: $_receiverId");
     print("MY ID: $_currentUserId");
     
@@ -119,6 +134,7 @@ class _ChatScreenState extends State<ChatScreen> {
         "content": text,
         "is_encrypted": false
       });
+      print("Sent to: $_receiverId");
       await _loadMessages(hideLoading: true);
     } catch (e) {
       print("Error sending message: $e");
