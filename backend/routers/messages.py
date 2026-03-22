@@ -79,22 +79,31 @@ async def send_message(
             detail=str(e)
         )
 
-@router.get("/{other_id}")
+@router.get("/{other_user_id}")
 async def get_messages(
-    other_id: str,
+    other_user_id: str,
     current_user: dict = Depends(get_current_user)
 ):
     my_id = current_user["user_id"]
+    print(f"DEBUG: Getting messages between {my_id} and {other_user_id}")
     try:
+        # Fetch all messages involving the current user (either as sender or receiver)
+        # Then filter manually to ensure it's specifically for this conversation
         result = supabase.table("messages")\
             .select("*")\
-            .or_(
-                f"and(sender_id.eq.{my_id},receiver_id.eq.{other_id}),"
-                f"and(sender_id.eq.{other_id},receiver_id.eq.{my_id})"
-            )\
-            .order("created_at")\
             .execute()
-        return result.data
+        
+        all_messages = result.data
+        filtered = [
+            m for m in all_messages
+            if (m["sender_id"] == my_id and m["receiver_id"] == other_user_id)
+            or (m["sender_id"] == other_user_id and m["receiver_id"] == my_id)
+        ]
+        
+        print(f"DEBUG: Found {len(filtered)} filtered messages")
+        # Sort by created_at ascending
+        filtered.sort(key=lambda x: x["created_at"])
+        return filtered
     except Exception as e:
         print(f"Error fetching messages: {e}")
         raise HTTPException(
