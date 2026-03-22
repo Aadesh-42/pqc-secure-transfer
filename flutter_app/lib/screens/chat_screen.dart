@@ -39,9 +39,9 @@ class _ChatScreenState extends State<ChatScreen> {
     _currentUserId = await _storage.read(key: "user_id");
     _currentRole = await _storage.read(key: "role");
     
-    print("=== CHAT INITIALIZE ===");
-    print("Current user: $_currentUserId");
-    print("Current role: $_currentRole");
+    print("=== INIT DEBUG ===");
+    print("Role: $_currentRole");
+    print("My ID: $_currentUserId");
     
     final api = Provider.of<ApiService>(context, listen: false);
     
@@ -62,6 +62,8 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       print("Error getting receiver: $e");
     }
+
+    print("Got receiver: $_receiverId");
     
     if (_receiverId != null) {
       await _loadMessages();
@@ -120,11 +122,13 @@ class _ChatScreenState extends State<ChatScreen> {
         _currentUserId == null || 
         _receiverId == null) return;
 
-    print("=== SEND DEBUG ===");
-    print("SENDING TO: $_receiverId");
-    print("MY ID: $_currentUserId");
-    
     final text = _msgCtrl.text.trim();
+    
+    print("=== SEND DEBUG ===");
+    print("MY ID: $_currentUserId");
+    print("RECEIVER ID: $_receiverId");
+    print("Content: $text");
+    
     _msgCtrl.clear();
     
     try {
