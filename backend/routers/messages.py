@@ -7,6 +7,7 @@ from datetime import datetime
 import os
 
 from database.connection import supabase
+from routers.audit import log_action
 
 router = APIRouter(prefix="/messages", tags=["Messages"])
 
@@ -71,6 +72,11 @@ async def send_message(
         print(f"Message sent: {result.data}")
         if not result.data:
             raise Exception("No data returned from supabase insert")
+        await log_action(
+            user_id=current_user["user_id"],
+            action="message_sent",
+            metadata={"receiver_id": msg.receiver_id}
+        )
         return result.data[0]
     except Exception as e:
         print(f"Error sending message: {e}")
