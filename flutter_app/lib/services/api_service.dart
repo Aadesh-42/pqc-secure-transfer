@@ -92,7 +92,7 @@ class ApiService {
   Future<Response> regenerateKeys() => _dio.get('/auth/regenerate_keys');
 
   // Messages Endpoints
-  Future<Response> getMessages(String userId) => _dio.get('/messages/$userId');
+  Future<Response> getMessages(String otherUserId) => _dio.get('/messages/$otherUserId');
   Future<Response> sendMessage(Map<String, dynamic> data) => _dio.post('/messages/send', data: data);
 
   // Audit Logs Endpoint
