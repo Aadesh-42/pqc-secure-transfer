@@ -169,7 +169,7 @@ class _ReceiveFileScreenState extends State<ReceiveFileScreen> {
         title: const Text("Decrypted Image"),
         content: Container(
           constraints: const BoxConstraints(maxHeight: 400),
-          child: Image.memory(bytes, fit: BoxContains.contain),
+          child: Image.memory(bytes, fit: BoxFit.contain),
         ),
         actions: [
           TextButton(
