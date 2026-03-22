@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import os
 from database.connection import supabase
 from models.task import TaskCreate
+from routers.audit import log_action
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
@@ -67,6 +68,11 @@ async def create_task(task: TaskCreate, current_user: dict = Depends(get_current
     result = supabase.table("tasks").insert(data).execute()
     if not result.data:
         raise HTTPException(status_code=500, detail="Failed to create task")
+    await log_action(
+        user_id=current_user["user_id"],
+        action="task_created",
+        metadata={"title": task.title, "assigned_to": task.assigned_to}
+    )
     return result.data[0]
 
 @router.get("")
@@ -93,6 +99,11 @@ async def update_task_status(
         result = supabase.table("tasks").update({"status": status_update.status}).eq("id", task_id).execute()
         print(f"Updated: {result.data}")
         if result.data:
+            await log_action(
+                user_id=current_user["user_id"],
+                action="task_updated",
+                metadata={"task_id": task_id, "status": status_update.status}
+            )
             return result.data[0]
         raise HTTPException(status_code=404, detail="Task not found")
     except Exception as e:
