@@ -1,17 +1,19 @@
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.security import OAuth2PasswordBearer
+from jose import jwt, JWTError
+from pydantic import BaseModel
+from typing import Optional, List
+from datetime import datetime, timezone, timedelta
+import os
+import random
+
 from models.user import UserCreate, UserLogin, UserResponse, MfaVerify
 from services.auth_service import (
     get_password_hash, verify_password, create_access_token,
     generate_mfa_secret, verify_mfa_token
 )
 from database.connection import supabase
-from datetime import timedelta, datetime, timezone
-import random
 from services.email_service import send_otp_email
-
-from fastapi.security import OAuth2PasswordBearer
-from jose import jwt, JWTError
-import os
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
