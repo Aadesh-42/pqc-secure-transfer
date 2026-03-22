@@ -8,6 +8,8 @@ import 'services/pqc_service.dart';
 
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
+import 'screens/register_otp_screen.dart';
 import 'screens/admin/admin_dashboard.dart';
 import 'screens/admin/send_file_screen.dart';
 import 'screens/admin/task_management.dart';
@@ -17,8 +19,6 @@ import 'screens/employee/receive_file_screen.dart';
 import 'screens/employee/task_checklist.dart';
 import 'screens/chat_screen.dart';
 import 'screens/admin/employee_list_screen.dart';
-import 'screens/register_screen.dart';
-import 'screens/register_otp_screen.dart';
 
 void main() {
   runApp(
@@ -66,9 +66,9 @@ class PQCSecureApp extends StatelessWidget {
         '/receive_file': (context) => const ReceiveFileScreen(),
         '/task_checklist': (context) => const TaskChecklistScreen(),
         '/chat': (context) => const ChatScreen(),
-        '/employee_list': (context) => const EmployeeListScreen(),
         '/register': (context) => const RegisterScreen(),
         '/register-otp': (context) => const RegisterOtpScreen(),
+        '/employee_list': (context) => const EmployeeListScreen(),
       },
     );
   }
