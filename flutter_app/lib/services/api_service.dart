@@ -95,6 +95,10 @@ class ApiService {
   Future<Response> getMessages(String otherUserId) => _dio.get('/messages/$otherUserId');
   Future<Response> sendMessage(Map<String, dynamic> data) => _dio.post('/messages/send', data: data);
 
+  // Registration Endpoints
+  Future<Response> registerRequest(Map<String, dynamic> data) => _dio.post('/auth/register-request', data: data);
+  Future<Response> verifyRegistration(Map<String, dynamic> data) => _dio.post('/auth/verify-registration', data: data);
+
   // Audit Logs Endpoint
   Future<Response> getAuditLogs() => _dio.get('/audit/logs');
 
