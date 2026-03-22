@@ -48,15 +48,17 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       if (_currentRole == "admin") {
         final res = await api.getEmployees();
+        print("ALL EMPLOYEES: ${res.data}");
         if ((res.data as List).isNotEmpty) {
           _receiverId = res.data[0]["id"];
-          print("Admin receiver (employee): $_receiverId");
+          print("Using employee: $_receiverId");
         }
       } else {
         final res = await api.getAdmins();
+        print("ALL ADMINS: ${res.data}");
         if ((res.data as List).isNotEmpty) {
           _receiverId = res.data[0]["id"];
-          print("Employee receiver (admin): $_receiverId");
+          print("Using admin: $_receiverId");
         }
       }
     } catch (e) {
