@@ -79,16 +79,19 @@ async def send_message(
             detail=str(e)
         )
 
-@router.get("/{user_id}")
+@router.get("/{other_id}")
 async def get_messages(
-    user_id: str,
+    other_id: str,
     current_user: dict = Depends(get_current_user)
 ):
     my_id = current_user["user_id"]
     try:
         result = supabase.table("messages")\
             .select("*")\
-            .or_(f"sender_id.eq.{my_id},receiver_id.eq.{my_id}")\
+            .or_(
+                f"and(sender_id.eq.{my_id},receiver_id.eq.{other_id}),"
+                f"and(sender_id.eq.{other_id},receiver_id.eq.{my_id})"
+            )\
             .order("created_at")\
             .execute()
         return result.data
