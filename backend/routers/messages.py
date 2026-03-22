@@ -3,10 +3,9 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime
 import os
 
-from models.message import MessageCreate, MessageResponse
 from database.connection import supabase
 
 router = APIRouter(prefix="/messages", tags=["Messages"])
@@ -50,21 +49,52 @@ def get_current_user(
             detail="Invalid token"
         )
 
-@router.get("/{user_id}", response_model=List[MessageResponse])
-async def get_messages(user_id: str, current_user: dict = Depends(get_current_user)):
-    """Get messages involving a specific user."""
-    # This queries messages where the user is either sender or receiver
-    result = supabase.table("messages").select("*").or_(f"sender_id.eq.{user_id},receiver_id.eq.{user_id}").execute()
-    return result.data
+class MessageCreate(BaseModel):
+    receiver_id: str
+    content: str
+    is_encrypted: bool = False
 
-@router.post("/send", response_model=MessageResponse)
-async def send_message(msg: MessageCreate, current_user: dict = Depends(get_current_user)):
-    """Send a new message."""
-    record = msg.model_dump()
-    # Use current user ID as sender_id
-    record["sender_id"] = current_user["user_id"]
-        
-    result = supabase.table("messages").insert(record).execute()
-    if not result.data:
-        raise HTTPException(status_code=500, detail="Failed to send message")
-    return result.data[0]
+@router.post("/send")
+async def send_message(
+    msg: MessageCreate,
+    current_user: dict = Depends(get_current_user)
+):
+    print(f"Sending message from {current_user['user_id']} to {msg.receiver_id}")
+    try:
+        data = {
+            "sender_id": current_user["user_id"],
+            "receiver_id": msg.receiver_id,
+            "content": msg.content,
+            "is_encrypted": msg.is_encrypted
+        }
+        result = supabase.table("messages").insert(data).execute()
+        print(f"Message sent: {result.data}")
+        if not result.data:
+            raise Exception("No data returned from supabase insert")
+        return result.data[0]
+    except Exception as e:
+        print(f"Error sending message: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+@router.get("/{user_id}")
+async def get_messages(
+    user_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    my_id = current_user["user_id"]
+    try:
+        result = supabase.table("messages")\
+            .select("*")\
+            .or_(f"sender_id.eq.{my_id},receiver_id.eq.{my_id}")\
+            .order("created_at")\
+            .execute()
+        return result.data
+    except Exception as e:
+        print(f"Error fetching messages: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
