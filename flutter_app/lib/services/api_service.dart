@@ -73,6 +73,7 @@ class ApiService {
   Future<Response> login(Map<String, dynamic> data) => _dio.post('/auth/login', data: data);
   Future<Response> verifyMfa(Map<String, dynamic> data) => _dio.post('/auth/mfa/verify', data: data);
   Future<Response> getEmployees() => _dio.get('/auth/employees');
+  Future<Response> getAdmins() => _dio.get('/auth/admins');
 
   // Tasks Endpoints
   Future<Response> getTasks() => _dio.get('/tasks');
