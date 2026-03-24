@@ -49,35 +49,55 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
-  Future<void> _handleRegister() async {
-    if (!_formKey.currentState!.validate()) return;
-
+  Future<void> _register() async {
+    print("=== REGISTER DEBUG ===");
+    print("First: ${_firstNameCtrl.text}");
+    print("Last: ${_lastNameCtrl.text}");
+    print("Email: ${_emailCtrl.text}");
+    print("Password length: ${_passwordCtrl.text.length}");
+    
+    if (!_formKey.currentState!.validate()) {
+      print("Form validation failed!");
+      return;
+    }
+    print("Form valid! Proceeding...");
+    
     setState(() => _isLoading = true);
-    final api = Provider.of<ApiService>(context, listen: false);
-
+    
     try {
-      final res = await api.registerRequest({
-        'first_name': _firstNameCtrl.text.trim(),
-        'last_name': _lastNameCtrl.text.trim(),
-        'email': _emailCtrl.text.trim(),
-        'password': _passwordCtrl.text,
-        'role': _selectedRole,
+      final api = Provider.of<ApiService>(context, listen: false);
+      
+      print("Calling register API...");
+      final response = await api.registerRequest({
+        "first_name": _firstNameCtrl.text,
+        "last_name": _lastNameCtrl.text,
+        "email": _emailCtrl.text.trim().toLowerCase(),
+        "password": _passwordCtrl.text,
+        "role": "employee"
       });
-
-      if (res.statusCode == 200) {
+      
+      print("Response: ${response.statusCode}");
+      print("Body: ${response.data}");
+      
+      if (response.statusCode == 200) {
         if (mounted) {
           Navigator.pushNamed(
-            context, 
+            context,
             '/register-otp',
-            arguments: {'email': _emailCtrl.text.trim()},
+            arguments: {
+              'email': _emailCtrl.text.trim().toLowerCase()
+            }
           );
         }
       }
-    } on DioException catch (e) {
-      final msg = e.response?.data['detail'] ?? 'Registration failed';
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      print("Register error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: Colors.red,
+          content: Text("Error: ${e.toString()}")
+        ));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -135,24 +155,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   obscureText: true,
                   validator: (v) => v != _passwordCtrl.text ? 'Passwords do not match' : null,
                 ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: _selectedRole,
-                  decoration: InputDecoration(
-                    labelText: 'Role',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    prefixIcon: const Icon(Icons.badge),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'employee', child: Text('Employee')),
-                  ],
-                  onChanged: (v) => setState(() => _selectedRole = v!),
-                ),
                 const SizedBox(height: 24),
-                CustomButton(
-                  text: 'Create Account',
-                  isLoading: _isLoading,
-                  onPressed: _handleRegister,
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _register,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text("Create Account", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
