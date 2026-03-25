@@ -115,6 +115,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const Icon(Icons.person_add_outlined, size: 64, color: Colors.blueAccent),
                 const SizedBox(height: 24),
                 CustomTextField(
                   label: 'First Name',
