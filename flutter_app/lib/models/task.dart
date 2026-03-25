@@ -7,6 +7,8 @@ class TaskModel {
   final String priority;
   final DateTime? dueDate;
   final DateTime createdAt;
+  final String? pqcSignature;
+  final bool isPqcVerified;
 
   TaskModel({
     required this.id,
@@ -17,6 +19,8 @@ class TaskModel {
     required this.priority,
     this.dueDate,
     required this.createdAt,
+    this.pqcSignature,
+    this.isPqcVerified = false,
   });
 
   factory TaskModel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +33,8 @@ class TaskModel {
       priority: json['priority'],
       dueDate: json['due_date'] != null ? DateTime.parse(json['due_date']) : null,
       createdAt: DateTime.parse(json['created_at']),
+      pqcSignature: json['pqc_signature'],
+      isPqcVerified: json['is_pqc_verified'] ?? false,
     );
   }
 }
