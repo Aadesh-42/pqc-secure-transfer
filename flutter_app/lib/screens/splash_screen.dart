@@ -78,11 +78,6 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              'assets/images/logo.png',
-              width: 180,
-              height: 180,
-            ),
             const SizedBox(height: 24),
             Text(
               'PQC Secure',
