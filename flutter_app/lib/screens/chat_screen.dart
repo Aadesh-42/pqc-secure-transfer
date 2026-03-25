@@ -175,7 +175,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text(
           _receiverEmail ??
@@ -183,104 +186,178 @@ class _ChatScreenState extends State<ChatScreen> {
             ? "Chat with Employee"
             : "Chat with Admin")
         ),
+        elevation: 0,
+        backgroundColor: Theme.of(context).colorScheme.surface,
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _messages.isEmpty
-                ? const Center(
-                    child: Text(
-                      "No messages yet!\nSend the first message.",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey)))
-                : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (ctx, i) {
-                      final msg = _messages[i];
-                      final isMe = msg.senderId == _currentUserId;
-                      
-                      print("Message: ${msg.content}");
-                      print("Sender: ${msg.senderId}");
-                      print("My ID: $_currentUserId");
-                      print("isMe: $isMe");
-
-                      return Align(
-                        alignment: isMe
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(
-                            vertical: 4, horizontal: 8),
-                          padding: const EdgeInsets.all(12),
-                          constraints: BoxConstraints(
-                            maxWidth: MediaQuery.of(context).size.width * 0.7
-                          ),
-                          decoration: BoxDecoration(
-                            color: isMe ? Colors.blue : Colors.grey[700],
-                            borderRadius: BorderRadius.only(
-                              topLeft: const Radius.circular(12),
-                              topRight: const Radius.circular(12),
-                              bottomLeft: isMe 
-                                ? const Radius.circular(12) 
-                                : const Radius.circular(0),
-                              bottomRight: isMe 
-                                ? const Radius.circular(0) 
-                                : const Radius.circular(12),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _messages.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.chat_bubble_outline, size: 48, color: Colors.grey[600]),
+                          const SizedBox(height: 16),
+                          const Text(
+                            "No messages yet!\nSend the first message.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey))
+                        ],
+                      ))
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      itemCount: _messages.length,
+                      itemBuilder: (ctx, i) {
+                        final msg = _messages[i];
+                        final isMe = msg.senderId == _currentUserId;
+                        
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Align(
+                            alignment: isMe
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                            child: Column(
+                              crossAxisAlignment: isMe
+                                ? CrossAxisAlignment.end
+                                : CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 4, right: 4, bottom: 2),
+                                  child: Text(
+                                    isMe ? "You" : (_receiverEmail ?? "Other"),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey[500]
+                                    )
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  constraints: BoxConstraints(
+                                    maxWidth: screenWidth * 0.75
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isMe 
+                                      ? Colors.teal[700] 
+                                      : Colors.grey[800],
+                                    borderRadius: BorderRadius.only(
+                                      topLeft: const Radius.circular(16),
+                                      topRight: const Radius.circular(16),
+                                      bottomLeft: Radius.circular(isMe ? 16 : 0),
+                                      bottomRight: Radius.circular(isMe ? 0 : 16),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      )
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              msg.content,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 15
+                                              )
+                                            ),
+                                          ),
+                                          if (msg.isPqcSigned) ...[
+                                            const SizedBox(width: 6),
+                                            const Icon(
+                                              Icons.verified_user,
+                                              size: 14,
+                                              color: Colors.cyanAccent,
+                                            ),
+                                          ]
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
+                                  child: Text(
+                                    "${msg.createdAt.hour}:${msg.createdAt.minute.toString().padLeft(2, '0')}",
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: Colors.grey[600]
+                                    )
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: isMe
-                              ? CrossAxisAlignment.end
-                              : CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isMe ? "You" : "Other",
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.white70
-                                )
-                              ),
-                              Text(
-                                msg.content,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16
-                                )
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _msgCtrl,
-                    decoration: const InputDecoration(
-                      hintText: "Type a message...",
-                      border: OutlineInputBorder(),
+                        );
+                      },
                     ),
-                    onSubmitted: (_) => _sendMessage(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.send, color: Colors.blue),
-                  onPressed: _sendMessage,
-                ),
-              ],
             ),
-          ),
-        ],
+            _buildInputField(),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildInputField() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[900],
+        border: Border(
+          top: BorderSide(
+            color: Colors.grey[800]!
+          )
+        )
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _msgCtrl,
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: "Type a message...",
+                hintStyle: TextStyle(color: Colors.grey[500]),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none
+                ),
+                filled: true,
+                fillColor: Colors.grey[800],
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10
+                )
+              ),
+            )
+          ),
+          const SizedBox(width: 8),
+          CircleAvatar(
+            backgroundColor: Colors.teal,
+            radius: 22,
+            child: IconButton(
+              icon: const Icon(Icons.send, color: Colors.white, size: 20),
+              onPressed: _sendMessage
+            )
+          )
+        ]
+      )
     );
   }
 }
