@@ -115,11 +115,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Image.asset(
-                  'assets/images/logo.png',
-                  width: 100,
-                  height: 100,
-                ),
                 const SizedBox(height: 24),
                 CustomTextField(
                   label: 'First Name',
