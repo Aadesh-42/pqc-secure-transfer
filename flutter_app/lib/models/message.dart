@@ -3,8 +3,8 @@ class Message {
   final String senderId;
   final String receiverId;
   final String content;
-  final bool isEncrypted;
-  final DateTime createdAt;
+  final bool isPqcSigned;
+  final String? signature;
 
   Message({
     required this.id,
@@ -13,6 +13,8 @@ class Message {
     required this.content,
     required this.isEncrypted,
     required this.createdAt,
+    this.isPqcSigned = false,
+    this.signature,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,8 @@ class Message {
       content: json['content'],
       isEncrypted: json['is_encrypted'] ?? false,
       createdAt: DateTime.parse(json['created_at']),
+      isPqcSigned: json['is_pqc_signed'] ?? false,
+      signature: json['signature'],
     );
   }
 }
