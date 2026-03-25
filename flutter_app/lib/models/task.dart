@@ -1,16 +1,15 @@
-class TaskModel {
+class Task {
   final String id;
   final String title;
   final String? description;
   final String? assignedTo;
   final String status;
   final String priority;
-  final DateTime? dueDate;
-  final DateTime createdAt;
-  final String? pqcSignature;
+  final String? dueDate;
   final bool isPqcVerified;
+  final String? pqcSignature;
 
-  TaskModel({
+  Task({
     required this.id,
     required this.title,
     this.description,
@@ -18,23 +17,31 @@ class TaskModel {
     required this.status,
     required this.priority,
     this.dueDate,
-    required this.createdAt,
-    this.pqcSignature,
     this.isPqcVerified = false,
+    this.pqcSignature,
   });
 
-  factory TaskModel.fromJson(Map<String, dynamic> json) {
-    return TaskModel(
-      id: json['id'],
-      title: json['title'],
-      description: json['description'],
-      assignedTo: json['assigned_to'],
-      status: json['status'],
-      priority: json['priority'],
-      dueDate: json['due_date'] != null ? DateTime.parse(json['due_date']) : null,
-      createdAt: DateTime.parse(json['created_at']),
-      pqcSignature: json['pqc_signature'],
-      isPqcVerified: json['is_pqc_verified'] ?? false,
+  factory Task.fromJson(
+    Map<String, dynamic> json
+  ) {
+    return Task(
+      id: json['id']?.toString() ?? '',
+      title: json['title']
+        ?.toString() ?? '',
+      description: json['description']
+        ?.toString(),
+      assignedTo: json['assigned_to']
+        ?.toString(),
+      status: json['status']
+        ?.toString() ?? 'pending',
+      priority: json['priority']
+        ?.toString() ?? 'medium',
+      dueDate: json['due_date']
+        ?.toString(),
+      isPqcVerified: 
+        json['is_pqc_verified'] ?? false,
+      pqcSignature: json['pqc_signature']
+        ?.toString(),
     );
   }
 }
