@@ -12,7 +12,7 @@ class TaskManagementScreen extends StatefulWidget {
 }
 
 class _TaskManagementScreenState extends State<TaskManagementScreen> {
-  List<TaskModel> _tasks = [];
+  List<Task> _tasks = [];
   List<Map<String, dynamic>> _employees = [];
   bool _isLoading = true;
 
@@ -36,7 +36,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
       final res = await Provider.of<ApiService>(context, listen: false).getTasks();
       if (res.statusCode == 200) {
         setState(() {
-          _tasks = (res.data as List).map((t) => TaskModel.fromJson(t)).toList();
+          _tasks = (res.data as List).map((t) => Task.fromJson(t)).toList();
         });
       }
     } catch (e) {
@@ -59,7 +59,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
     }
   }
 
-  Future<void> _updateTaskStatus(String id, String newStatus) async {
+  Future<void> _updateTask(String id, String newStatus) async {
     try {
       final res = await Provider.of<ApiService>(context, listen: false).updateTask(id, {'status': newStatus});
       if (res.statusCode == 200) {
@@ -79,125 +79,213 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
   void _showCreateTaskDialog() {
     final titleCtrl = TextEditingController();
     final descCtrl = TextEditingController();
-    String priority = 'medium';
-    String? assignedTo;
+    String selectedPriority = 'medium';
+    String? selectedEmployee;
 
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setStateDialog) => AlertDialog(
-          title: const Text('Create New Task'),
-          content: SingleChildScrollView(
+      isScrollControlled: true,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16)
+        ),
+        child: Container(
+          width: MediaQuery.of(context)
+            .size.width * 0.9,
+          padding: EdgeInsets.all(20),
+          child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: 
+                CrossAxisAlignment.start,
               children: [
-                TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Task Title')),
-                TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Description')),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: priority,
-                  items: const [
-                    DropdownMenuItem(value: 'low', child: Text('Low Priority')),
-                    DropdownMenuItem(value: 'medium', child: Text('Medium Priority')),
-                    DropdownMenuItem(value: 'high', child: Text('High Priority')),
-                  ],
-                  onChanged: (v) => setStateDialog(() => priority = v ?? 'medium'),
-                  decoration: const InputDecoration(labelText: 'Priority'),
+                Text(
+                  "Create New Task",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white
+                  )
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 20),
+                
+                TextField(
+                  controller: titleCtrl,
+                  style: TextStyle(
+                    color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: "Task Title",
+                    labelStyle: TextStyle(
+                      color: Colors.grey),
+                    border: OutlineInputBorder(
+                      borderRadius: 
+                        BorderRadius.circular(8)
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[850]
+                  )
+                ),
+                SizedBox(height: 12),
+                
+                TextField(
+                  controller: descCtrl,
+                  maxLines: 3,
+                  style: TextStyle(
+                    color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: "Description",
+                    labelStyle: TextStyle(
+                      color: Colors.grey),
+                    border: OutlineInputBorder(
+                      borderRadius: 
+                        BorderRadius.circular(8)
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[850]
+                  )
+                ),
+                SizedBox(height: 12),
+                
                 DropdownButtonFormField<String>(
-                  initialValue: assignedTo,
-                  hint: const Text('Select Employee'),
+                  value: selectedPriority,
+                  dropdownColor: Colors.grey[850],
+                  decoration: InputDecoration(
+                    labelText: "Priority",
+                    labelStyle: TextStyle(
+                      color: Colors.grey),
+                    border: OutlineInputBorder(
+                      borderRadius: 
+                        BorderRadius.circular(8)
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[850]
+                  ),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('Unassigned')),
-                    ..._employees.map((e) => DropdownMenuItem(
-                          value: e['id'] as String,
-                          child: Text(e['email'] as String),
-                        )),
+                    DropdownMenuItem(
+                      value: 'low',
+                      child: Text("Low",
+                        style: TextStyle(
+                          color: Colors.white))
+                    ),
+                    DropdownMenuItem(
+                      value: 'medium',
+                      child: Text("Medium",
+                        style: TextStyle(
+                          color: Colors.white))
+                    ),
+                    DropdownMenuItem(
+                      value: 'high',
+                      child: Text("High",
+                        style: TextStyle(
+                          color: Colors.white))
+                    ),
                   ],
-                  onChanged: (v) => setStateDialog(() => assignedTo = v),
-                  decoration: const InputDecoration(labelText: 'Assign to Employee'),
+                  onChanged: (v) => 
+                    selectedPriority = v ?? 'medium'
                 ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx), 
-              child: const Text('Cancel')
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                print("DEBUG [TaskDialog]: Create button clicked");
-                if (titleCtrl.text.isEmpty) {
-                  print("DEBUG [TaskDialog]: Title is empty, aborting");
-                  return;
-                }
+                SizedBox(height: 12),
                 
-                final api = Provider.of<ApiService>(context, listen: false);
-                setState(() => _isLoading = true);
-                print("DEBUG [TaskDialog]: Closing dialog and starting loading");
-                Navigator.pop(ctx); 
+                DropdownButtonFormField<String>(
+                  value: selectedEmployee,
+                  dropdownColor: Colors.grey[850],
+                  decoration: InputDecoration(
+                    labelText: "Assign to Employee",
+                    labelStyle: TextStyle(
+                      color: Colors.grey),
+                    border: OutlineInputBorder(
+                      borderRadius: 
+                        BorderRadius.circular(8)
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[850]
+                  ),
+                  items: _employees.map((emp) =>
+                    DropdownMenuItem(
+                      value: emp["id"].toString(),
+                      child: Text(
+                        emp["email"].toString(),
+                        overflow: 
+                          TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13
+                        )
+                      )
+                    )
+                  ).toList(),
+                  onChanged: (v) => 
+                    selectedEmployee = v
+                ),
+                SizedBox(height: 20),
                 
-                try {
-                  final taskData = {
-                    'title': titleCtrl.text,
-                    'description': descCtrl.text,
-                    'priority': priority,
-                    'assigned_to': assignedTo, // Will be null if Unassigned
-                    'status': 'pending',
-                  };
-                  print("DEBUG [TaskDialog]: Sending request to API: $taskData");
-                  
-                  final res = await api.createTask(taskData);
-                  print("DEBUG [TaskDialog]: API Response Code: ${res.statusCode}");
-                  print("DEBUG [TaskDialog]: API Response Body: ${res.data}");
-                  
-                  if (res.statusCode == 201 || res.statusCode == 200) {
-                    print("DEBUG [TaskDialog]: Creation SUCCESS");
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Task created successfully!'))
-                      );
-                    }
-                    print("DEBUG [TaskDialog]: Refreshing task list");
-                    await _loadTasks();
-                  } else {
-                    print("DEBUG [TaskDialog]: Creation FAILED with code ${res.statusCode}");
-                    setState(() => _isLoading = false);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Server Error: ${res.statusCode} - ${res.data}'))
-                      );
-                    }
-                  }
-                } on DioException catch (e) {
-                  print("DEBUG [TaskDialog]: DIO ERROR: ${e.response?.statusCode}");
-                  print("DEBUG [TaskDialog]: ERROR BODY: ${e.response?.data}");
-                  final msg = e.response?.data['detail'] ?? e.message;
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('API Error: $msg'))
-                    );
-                    setState(() => _isLoading = false);
-                  }
-                } catch (e) {
-                  print("DEBUG [TaskDialog]: GENERAL ERROR: $e");
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Unexpected Error: $e'))
-                    );
-                    setState(() => _isLoading = false);
-                  }
-                }
-              },
-              child: const Text('Create'),
-            ),
-          ],
-        ),
-      ),
+                Row(
+                  mainAxisAlignment:
+                    MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => 
+                        Navigator.pop(ctx),
+                      child: Text("Cancel",
+                        style: TextStyle(
+                          color: Colors.grey))
+                    ),
+                    SizedBox(width: 12),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: 
+                          Colors.teal,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: 
+                            BorderRadius.circular(8)
+                        )
+                      ),
+                      onPressed: () async {
+                        if (titleCtrl.text
+                          .trim().isEmpty) return;
+                        Navigator.pop(ctx);
+                        await _createTask(
+                          titleCtrl.text.trim(),
+                          descCtrl.text.trim(),
+                          selectedEmployee,
+                          selectedPriority
+                        );
+                      },
+                      child: Text("Create",
+                        style: TextStyle(
+                          color: Colors.white))
+                    )
+                  ]
+                )
+              ]
+            )
+          )
+        )
+      )
     );
+  }
+
+  Future<void> _createTask(String title, String desc, String? assignedTo, String priority) async {
+    setState(() => _isLoading = true);
+    try {
+      final api = Provider.of<ApiService>(context, listen: false);
+      final res = await api.createTask({
+        'title': title,
+        'description': desc,
+        'priority': priority,
+        'assigned_to': assignedTo,
+        'status': 'pending',
+      });
+      if (res.statusCode == 201 || res.statusCode == 200) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Task created successfully!')));
+        await _loadTasks();
+      } else {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to create task: ${res.statusCode}')));
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -235,26 +323,147 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
                     itemBuilder: (context, index) {
                       final task = _tasks[index];
                       return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        child: ListTile(
-                          leading: Icon(
-                            task.status == 'completed' ? Icons.check_circle : Icons.radio_button_unchecked,
-                            color: task.status == 'completed' ? Colors.green : Colors.grey,
-                          ),
-                          title: Text(task.title),
-                          subtitle: Text("Assignee: ${_getAssigneeEmail(task.assignedTo)} - Priority: ${task.priority}"),
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (val) => _updateTaskStatus(task.id, val),
-                            itemBuilder: (context) => const [
-                              PopupMenuItem(value: 'pending', child: Text('Mark Pending')),
-                              PopupMenuItem(value: 'completed', child: Text('Mark Completed')),
-                            ],
-                          ),
+                        margin: EdgeInsets.only(bottom: 12),
+                        color: Colors.grey[900],
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(
+                            color: task.isPqcVerified
+                              ? Colors.teal.withOpacity(0.5)
+                              : Colors.grey[700]!,
+                            width: 1
+                          )
                         ),
+                        child: ListTile(
+                          contentPadding: EdgeInsets.all(12),
+                          leading: CircleAvatar(
+                            backgroundColor: task.status == 
+                              'completed'
+                              ? Colors.teal
+                              : Colors.grey[700],
+                            child: Icon(
+                              task.status == 'completed'
+                                ? Icons.check
+                                : Icons.assignment,
+                              color: Colors.white,
+                              size: 20
+                            )
+                          ),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  task.title,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold
+                                  )
+                                )
+                              ),
+                              if (task.isPqcVerified)
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.teal
+                                      .withOpacity(0.2),
+                                    borderRadius: 
+                                      BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: Colors.teal,
+                                      width: 0.5
+                                    )
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.verified_user,
+                                        size: 10,
+                                        color: Colors.teal
+                                      ),
+                                      SizedBox(width: 2),
+                                      Text(
+                                        "PQC",
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: Colors.teal,
+                                          fontWeight: 
+                                            FontWeight.bold
+                                        )
+                                      )
+                                    ]
+                                  )
+                                )
+                            ]
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: 
+                              CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(height: 4),
+                              Text(
+                                "Assignee: ${_getAssigneeEmail(task.assignedTo)}",
+                                style: TextStyle(
+                                  color: Colors.grey[400],
+                                  fontSize: 12
+                                )
+                              ),
+                              Text(
+                                "Priority: ${task.priority
+                                  .toUpperCase()}",
+                                style: TextStyle(
+                                  color: task.priority == 'high'
+                                    ? Colors.red[300]
+                                    : task.priority == 'medium'
+                                      ? Colors.orange[300]
+                                      : Colors.green[300],
+                                  fontSize: 12
+                                )
+                              ),
+                              if (task.isPqcVerified)
+                                Text(
+                                  "Secured with Dilithium3 PQC",
+                                  style: TextStyle(
+                                    color: Colors.teal[300],
+                                    fontSize: 11
+                                  )
+                                )
+                            ]
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            icon: Icon(Icons.more_vert,
+                              color: Colors.grey),
+                            color: Colors.grey[850],
+                            onSelected: (status) => 
+                              _updateTask(task.id, status),
+                            itemBuilder: (ctx) => [
+                              PopupMenuItem(
+                                value: 'pending',
+                                child: Text("Mark Pending",
+                                  style: TextStyle(
+                                    color: Colors.white))
+                              ),
+                              PopupMenuItem(
+                                value: 'completed',
+                                child: Text("Mark Completed",
+                                  style: TextStyle(
+                                    color: Colors.white))
+                              ),
+                            ]
+                          )
+                        )
                       );
                     },
                   ),
             ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showCreateTaskDialog,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
       floatingActionButton: FloatingActionButton(
         onPressed: _showCreateTaskDialog,
         child: const Icon(Icons.add),
