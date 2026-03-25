@@ -128,6 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const Icon(Icons.lock_outline, size: 80, color: Colors.blueAccent),
               const SizedBox(height: 32),
               Text(
                 _showMfa ? 'Check your email!' : 'Welcome Back',
