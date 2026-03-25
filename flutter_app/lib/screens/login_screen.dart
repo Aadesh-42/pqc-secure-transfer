@@ -128,11 +128,6 @@ class _LoginScreenState extends State<LoginScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Image.asset(
-                'assets/images/logo.png',
-                width: 100,
-                height: 100,
-              ),
               const SizedBox(height: 32),
               Text(
                 _showMfa ? 'Check your email!' : 'Welcome Back',
