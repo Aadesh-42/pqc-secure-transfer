@@ -84,7 +84,6 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
 
     showDialog(
       context: context,
-      isScrollControlled: true,
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16)
@@ -457,13 +456,6 @@ class _TaskManagementScreenState extends State<TaskManagementScreen> {
                     },
                   ),
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateTaskDialog,
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-}
       floatingActionButton: FloatingActionButton(
         onPressed: _showCreateTaskDialog,
         child: const Icon(Icons.add),
