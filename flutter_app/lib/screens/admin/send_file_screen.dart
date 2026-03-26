@@ -83,7 +83,7 @@ class _SendFileScreenState extends State<SendFileScreen> {
       // STEP 1: Get Employee Public Key
       print("Step 1: Fetching employee public key");
       final keyRes = await api.getUserPublicKey(_selectedEmployeeId!).timeout(
-        const Duration(seconds: 15),
+        const Duration(seconds: 120),
         onTimeout: () => throw Exception("Failed to fetch recipient public key (Timeout)")
       );
       final String employeePublicKey = keyRes.data['public_key'];
@@ -99,7 +99,7 @@ class _SendFileScreenState extends State<SendFileScreen> {
         'file_bytes_b64': fileB64,
         'public_key': employeePublicKey,
       }).timeout(
-        const Duration(seconds: 30),
+        const Duration(seconds: 120),
         onTimeout: () => throw Exception("Encryption timeout (Kyber-768 is computationally intensive)")
       );
       
@@ -117,7 +117,7 @@ class _SendFileScreenState extends State<SendFileScreen> {
         'encrypted_payload_b64': encryptedPayload,
         'private_key': "dummy_private_key_for_dilithium3",
       }).timeout(
-        const Duration(seconds: 20),
+        const Duration(seconds: 120),
         onTimeout: () => throw Exception("Signing timeout")
       );
       
@@ -134,7 +134,10 @@ class _SendFileScreenState extends State<SendFileScreen> {
         'encrypted_payload': encryptedPayload,
         'kyber_ciphertext': kyberCiphertext,
         'dilithium_signature': signature,
-      });
+      }).timeout(
+        const Duration(seconds: 120),
+        onTimeout: () => throw Exception("File upload timeout")
+      );
 
       if (sendRes.statusCode == 200) {
         setState(() => _currentStep = 4);
@@ -170,7 +173,7 @@ class _SendFileScreenState extends State<SendFileScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DropdownButtonFormField<String>(
-                  value: _selectedEmployeeId,
+                  initialValue: _selectedEmployeeId,
                   decoration: const InputDecoration(labelText: 'Recipient', border: OutlineInputBorder()),
                   items: _employees.map((e) => DropdownMenuItem(
                     value: e['id'] as String, 
